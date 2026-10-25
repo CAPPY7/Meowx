@@ -1,0 +1,105 @@
+MEOWX AUDIT REPORT
+Date: 2026-10-25
+Repo: https://github.com/CAPPY7/Meowx
+Latest release: https://github.com/CAPPY7/Meowx/releases/tag/v1.0.3
+
+This machine is Linux x86_64. xcodebuild, swift, brew, otool, and codesign are not installed. Local playback, signing, and a Homebrew install were not run here. Proof is the macos-26 GitHub Actions runner plus a downloaded DMG checked with shasum.
+
+A. FIXED
+
+1. Bundled libmpv did not load. v1.0.1 Verify bundle aborted:
+   dyld: Library not loaded: @executable_path/../Frameworks/libmpv.2.dylib
+   Reason: duplicate LC_RPATH '@executable_path/../Frameworks/'
+   File: scripts/bundle_libs.sh
+   Change: after dylibbundler, delete every LC_RPATH, drop /opt/homebrew and /usr/local rpaths, and add each remaining path once with the trailing slash removed. Then ad-hoc sign.
+   File: scripts/verify_bundle.sh
+   Change: fail if a Mach-O still has a duplicate rpath or a Homebrew rpath, then codesign --verify --deep --strict and --self-test.
+   Proof: https://github.com/CAPPY7/Meowx/actions/runs/40198929967
+   Verify bundle printed "mpv v0.41.0" and the step succeeded. The same check passed on
+   https://github.com/CAPPY7/Meowx/actions/runs/40198165967
+   and https://github.com/CAPPY7/Meowx/actions/runs/40198509316
+
+2. Published checksums named the Actions runner path, so shasum -c failed after download. The digest of v1.0.2 was correct (6adf5127c1dfac052c6075a3b8266ff8673dc7320265356a3132fd43b27390b6) but the filename inside the file was /Users/runner/work/Meowx/Meowx/build/Meowx-1.0.2.dmg.
+   Files: scripts/build_dmg.sh, .github/workflows/release.yml
+   Change: hash from the build directory so the line is "<sha256>  Meowx-<version>.dmg" and "<sha256>  Meowx.dmg".
+   Proof: downloaded v1.0.3 and ran shasum -a 256 -c. Both files printed OK.
+   Meowx-1.0.3.dmg: OK
+   Meowx.dmg: OK
+   Digest: a1a9be494b662d56012ddd3cb68784b074428ab5ae8df78959c8fb673732df2f
+
+B. REMOVED
+
+None. No control was removed.
+
+C. STILL BROKEN or NOT TESTED
+
+STILL BROKEN
+- Cappy7/homebrew-meowx does not exist (GitHub API 404). The release step prints "TAP_TOKEN is not set" and skips. brew audit and brew install were not run.
+- v1.0.0 has no DMG. v1.0.1 has no DMG (verify failed). v1.0.2 has a DMG whose checksum file uses a runner path. Use v1.0.3.
+
+NOT TESTED (no Mac GUI and no local Xcode on this machine)
+- Playing a file, 4K HEVC, hwdec-current, seek, frame step, speed, A-B loop, repeat, shuffle, volume, mute, track switching, subtitle and audio delay, screenshots, album art, resume across quit, HLS, opening a bad file, memory after 20 files.
+- Keyboard shortcuts, typing-in-a-field suppression, drag and drop, Finder Open With, fullscreen, always-on-top, control auto-hide, cursor hide, playlist drag, dark and light appearance, settings reset, media keys, Now Playing, set-as-default.
+- Whether Picture-in-Picture, Touch Bar, and seek thumbnails work on a real Mac. The code is still in the app. It was not executed.
+- otool -L on a local Mac, codesign on a local Mac, running with Homebrew renamed, DYLD_PRINT_LIBRARIES.
+- scripts/install.sh on macOS. shellcheck is not installed here (apt could not run).
+- DMG drag-install, Open Anyway, and launching the app.
+- Unit tests on this machine. They passed on the macos-26 runner (swift test --package-path Packages/MeowxCore).
+
+D. MANUAL STEPS FOR ME
+
+1. Create an empty public repository named homebrew-meowx under CAPPY7. Add a README so it is not empty.
+2. Create a personal access token that can push to that repository (contents write).
+3. On https://github.com/CAPPY7/Meowx go to Settings, Secrets and variables, Actions, and add a secret named TAP_TOKEN with that token.
+4. Re-run the Release workflow on tag v1.0.3, or push a new tag. The job will write Casks/meowx.rb with version 1.0.3 and sha256 a1a9be494b662d56012ddd3cb68784b074428ab5ae8df78959c8fb673732df2f.
+5. On an Apple Silicon Mac with macOS 26: download the DMG, open it, drag Meowx to Applications, then System Settings, Privacy & Security, Open Anyway. Or:
+   xattr -dr com.apple.quarantine /Applications/Meowx.app
+6. Right-click, Open does not clear the unidentified-developer block on current macOS.
+
+E. COMMAND OUTPUTS
+
+Local
+  uname -m: x86_64
+  uname: Linux
+  xcodebuild: command not found
+  brew: command not found
+  swift: command not found
+  gh: logged in as CAPPY7
+
+GitHub Actions, all macos-26 arm64
+  Build (main, rpath fix): success
+    https://github.com/CAPPY7/Meowx/actions/runs/40198159540
+  Release manual (proved bundle, self-test, DMG; did not publish): success
+    https://github.com/CAPPY7/Meowx/actions/runs/40198165967
+  Release v1.0.2 (published DMG, bad checksum names): success
+    https://github.com/CAPPY7/Meowx/actions/runs/40198509316
+  Release v1.0.3: success in 5m21s
+    https://github.com/CAPPY7/Meowx/actions/runs/40198929967
+    Unit tests: success
+    Build: success
+    Bundle libraries: success
+    Verify bundle: success, printed "mpv v0.41.0"
+    Create DMG: success
+    Publish GitHub release: success
+    Update Homebrew tap: success as a step, but the log says TAP_TOKEN is not set and the tap was not updated
+
+Downloaded from https://github.com/CAPPY7/Meowx/releases/tag/v1.0.3
+  shasum -a 256 -c Meowx-1.0.3.dmg.sha256
+  Meowx-1.0.3.dmg: OK
+  shasum -a 256 -c Meowx.dmg.sha256
+  Meowx.dmg: OK
+
+otool and codesign were not run on this Linux machine. The Actions verify script runs both before --self-test, and that step exited 0.
+
+brew audit: NOT RUN. The tap repository does not exist.
+
+F. KNOWN LIMITS
+
+- The app is ad-hoc signed and not notarized. macOS Gatekeeper blocks the first launch until Open Anyway or xattr.
+- Stream smoothness depends on the connection. The cache cannot make a slow link instant.
+- HDR is tone-mapped. Dolby Vision uses the base layer.
+- Video is drawn with libmpv's OpenGL render API. Apple has deprecated OpenGL. There is no Metal render path in libmpv.
+- DVD and Blu-ray folders are best effort.
+- Picture-in-Picture in this app is a floating panel, not the system video PiP used by the TV app.
+- Intel Macs are not supported. The build is arm64 only.
+- Homebrew install does not work until the tap repository and TAP_TOKEN exist.
