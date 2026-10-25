@@ -4,17 +4,30 @@ import SwiftUI
 
 struct SettingsView: View {
     @State private var model = PlayerModel.shared
+    @State private var devices: [(id: String, name: String)] = []
 
     var body: some View {
+        TabView {
+            general.tabItem { Label("General", systemImage: "gearshape") }
+            playback.tabItem { Label("Playback", systemImage: "play.circle") }
+            video.tabItem { Label("Video", systemImage: "film") }
+            audio.tabItem { Label("Audio", systemImage: "speaker.wave.2") }
+            subtitles.tabItem { Label("Subtitles", systemImage: "captions.bubble") }
+            shortcuts.tabItem { Label("Shortcuts", systemImage: "keyboard") }
+            advanced.tabItem { Label("Advanced", systemImage: "wrench.and.screwdriver") }
+        }
+        .frame(width: Theme.settingsWidth, height: Theme.settingsHeight)
+        .preferredColorScheme(model.settings.appearance == .dark ? .dark : nil)
+        .onAppear { refreshDevices() }
+    }
+
+    private var general: some View {
         Form {
-            Toggle("Hardware decoding", isOn: binding(\.hardwareDecoding))
+            Picker("Appearance", selection: binding(\.appearance)) {
+                Text("Dark").tag(AppAppearance.dark)
+                Text("Match System").tag(AppAppearance.system)
+            }
             Toggle("Hide title bar and controls while playing", isOn: binding(\.hideChromeWhilePlaying))
-            Toggle("Click the video to play or pause", isOn: binding(\.clickToPause))
-            Toggle("Double-click the sides to jump 10 seconds", isOn: binding(\.doubleClickSidesSeek))
-            Toggle("Scroll wheel changes volume", isOn: binding(\.scrollAdjustsVolume))
-            Toggle("Horizontal scroll seeks", isOn: binding(\.scrollSeeks))
-            Toggle("Quit when the window closes", isOn: binding(\.quitWhenWindowCloses))
-            Toggle("Resize window to the video when a file opens", isOn: binding(\.resizeToVideoOnOpen))
             LabeledContent("Hide after") {
                 VStack(alignment: .trailing) {
                     Slider(value: binding(\.chromeHideDelay), in: 1...10, step: 0.5)
@@ -23,24 +36,62 @@ struct SettingsView: View {
                         .foregroundStyle(Theme.secondary)
                 }
             }
-            TextField("Subtitle languages", text: binding(\.subtitleLanguage))
-                .help("Comma-separated codes, for example en,eng")
-            TextField("Audio languages", text: binding(\.audioLanguage))
-            LabeledContent("Cache") {
-                VStack(alignment: .trailing) {
-                    Slider(
-                        value: Binding(
-                            get: { Double(model.settings.cacheMegabytes) },
-                            set: { value in model.updateSettings { $0.cacheMegabytes = Int(value) } }
-                        ),
-                        in: 64...2048,
-                        step: 64
-                    )
-                    Text("\(model.settings.cacheMegabytes) MB. Applies now. Backward cache stays at most 128 MB.")
-                        .font(Theme.caption)
-                        .foregroundStyle(Theme.secondary)
+            Toggle("Quit when the window closes", isOn: binding(\.quitWhenWindowCloses))
+            Toggle("Resize window to the video when a file opens", isOn: binding(\.resizeToVideoOnOpen))
+            Button("Set as Default Player") { model.makeDefaultPlayer() }
+            Text("Checking for updates is not built yet.")
+                .font(Theme.caption)
+                .foregroundStyle(Theme.secondary)
+        }
+        .formStyle(.grouped)
+    }
+
+    private var playback: some View {
+        Form {
+            Toggle("Resume where you left off", isOn: binding(\.resumeOnOpen))
+            Toggle("Play the next file", isOn: binding(\.playNext))
+            Picker("When the playlist ends", selection: binding(\.endBehavior)) {
+                Text("Stop").tag(RepeatMode.off)
+                Text("Repeat playlist").tag(RepeatMode.all)
+                Text("Repeat this file").tag(RepeatMode.one)
+            }
+            Toggle("Click the video to play or pause", isOn: binding(\.clickToPause))
+            Toggle("Double-click the sides to jump", isOn: binding(\.doubleClickSidesSeek))
+            Toggle("Scroll wheel changes volume", isOn: binding(\.scrollAdjustsVolume))
+            Toggle("Horizontal scroll seeks", isOn: binding(\.scrollSeeks))
+            Picker("Speed step", selection: binding(\.speedStep)) {
+                Text("Preset ladder").tag(SpeedStep.ladder)
+                Text("0.1×").tag(SpeedStep.tenth)
+                Text("0.25×").tag(SpeedStep.quarter)
+            }
+            Stepper(value: binding(\.seekShort), in: 1...120, step: 1) {
+                Text("Short seek \(Int(model.settings.seekShort)) s")
+            }
+            Stepper(value: binding(\.seekMedium), in: 1...120, step: 1) {
+                Text("Medium seek \(Int(model.settings.seekMedium)) s")
+            }
+            Stepper(value: binding(\.seekLong), in: 1...120, step: 1) {
+                Text("Long seek \(Int(model.settings.seekLong)) s")
+            }
+            note("Arrow keys use the short step. Shift uses the long step. The side buttons and a side double-click use the medium step. Applies now.")
+        }
+        .formStyle(.grouped)
+    }
+
+    private var video: some View {
+        Form {
+            Toggle("Hardware decoding", isOn: binding(\.hardwareDecoding))
+            Picker("HDR tone mapping", selection: binding(\.toneMapping)) {
+                ForEach(ToneMap.allCases, id: \.self) { choice in
+                    Text(choice.label).tag(choice)
                 }
             }
+            Picker("Default aspect", selection: binding(\.defaultAspect)) {
+                ForEach(AspectCycle.presets, id: \.self) { preset in
+                    Text(AspectCycle.label(preset)).tag(preset)
+                }
+            }
+            Toggle("Deinterlace new files", isOn: binding(\.deinterlaceOnOpen))
             LabeledContent("Screenshots") {
                 HStack {
                     Text(model.settings.resolvedScreenshotFolder.path)
@@ -56,48 +107,113 @@ struct SettingsView: View {
                     .frame(width: Theme.volumeWidth)
                 }
             }
-            TextField("Subtitle font", text: binding(\.subtitleFont))
-            LabeledContent("Subtitle size") {
-                Slider(value: binding(\.subtitleSize), in: 18...96, step: 1)
-            }
-            LabeledContent("Subtitle position") {
-                Slider(value: binding(\.subtitlePosition), in: 0...100, step: 1)
-            }
-            TextField("Subtitle color", text: binding(\.subtitleColorHex))
-                .help("#RRGGBB")
-            SecureField("OpenSubtitles API key", text: binding(\.openSubtitlesAPIKey))
-            Text("The key stays on this Mac. Online search is off until you add one.")
-                .font(Theme.caption)
-                .foregroundStyle(Theme.secondary)
-            Button("Reset to defaults", role: .destructive) { model.resetSettings() }
+            Toggle("Include subtitles in screenshots", isOn: binding(\.screenshotWithSubtitles))
+            note("Hardware decoding, tone mapping, aspect, and deinterlace apply to the current file now.")
         }
         .formStyle(.grouped)
-        .frame(width: Theme.settingsWidth)
-        .padding(Theme.s24)
     }
 
-    private func binding(_ keyPath: WritableKeyPath<PlayerSettings, String>) -> Binding<String> {
-        Binding(
-            get: { model.settings[keyPath: keyPath] },
-            set: { value in model.updateSettings { $0[keyPath: keyPath] = value } }
-        )
+    private var audio: some View {
+        Form {
+            Picker("Output", selection: binding(\.audioDevice)) {
+                Text("Auto").tag("auto")
+                ForEach(devices, id: \.id) { device in
+                    Text(device.name).tag(device.id)
+                }
+            }
+            Button("Refresh devices") { refreshDevices() }
+            Toggle("Normalize loudness", isOn: binding(\.loudnessNormalize))
+            Toggle("Compressor", isOn: binding(\.audioCompressor))
+            TextField("Preferred audio languages", text: binding(\.audioLanguage))
+                .help("Comma-separated codes, for example ja,en")
+            Toggle("Remember volume", isOn: binding(\.rememberVolume))
+            note("The device, normalization, compressor, and languages apply now. An equalizer is not built yet.")
+        }
+        .formStyle(.grouped)
     }
 
-    private func binding(_ keyPath: WritableKeyPath<PlayerSettings, Bool>) -> Binding<Bool> {
-        Binding(
-            get: { model.settings[keyPath: keyPath] },
-            set: { value in model.updateSettings { $0[keyPath: keyPath] = value } }
-        )
+    private var subtitles: some View {
+        Form {
+            TextField("Font", text: binding(\.subtitleFont))
+                .help("Empty uses the mpv font")
+            LabeledContent("Size") {
+                Slider(value: binding(\.subtitleSize), in: 18...96, step: 1)
+            }
+            TextField("Color", text: binding(\.subtitleColorHex))
+                .help("#RRGGBB")
+            LabeledContent("Outline") {
+                Slider(value: binding(\.subtitleOutline), in: 0...8, step: 0.5)
+            }
+            LabeledContent("Position") {
+                Slider(value: binding(\.subtitlePosition), in: 0...100, step: 1)
+            }
+            LabeledContent("Default delay") {
+                Slider(value: binding(\.subtitleDelayDefault), in: -5...5, step: 0.1)
+            }
+            TextField("Preferred languages", text: binding(\.subtitleLanguage))
+                .help("Comma-separated codes, for example en,eng")
+            Picker("Encoding", selection: binding(\.subtitleEncoding)) {
+                Text("Auto").tag("auto")
+                Text("UTF-8").tag("utf-8")
+                Text("UTF-16").tag("utf-16")
+                Text("Shift JIS").tag("shift_jis")
+                Text("Windows-1252").tag("cp1252")
+            }
+            note("Font, size, color, outline, position, delay, language, and encoding apply now.")
+            DisclosureGroup("Online search (optional)") {
+                SecureField("OpenSubtitles API key", text: binding(\.openSubtitlesAPIKey))
+                Text("The key stays on this Mac. Search stays off until you add one.")
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.secondary)
+                if let url = URL(string: "https://www.opensubtitles.com/en/consumers") {
+                    Link("How to get a key", destination: url)
+                }
+            }
+        }
+        .formStyle(.grouped)
     }
 
-    private func binding(_ keyPath: WritableKeyPath<PlayerSettings, Double>) -> Binding<Double> {
-        Binding(
-            get: { model.settings[keyPath: keyPath] },
-            set: { value in model.updateSettings { $0[keyPath: keyPath] = value } }
-        )
+    private var shortcuts: some View {
+        ShortcutSettings(model: model)
     }
 
-    private func binding(_ keyPath: WritableKeyPath<PlayerSettings, ScreenshotFormat>) -> Binding<ScreenshotFormat> {
+    private var advanced: some View {
+        Form {
+            LabeledContent("Cache") {
+                VStack(alignment: .trailing) {
+                    Slider(
+                        value: Binding(
+                            get: { Double(model.settings.cacheMegabytes) },
+                            set: { value in model.updateSettings { $0.cacheMegabytes = Int(value) } }
+                        ),
+                        in: 64...2048,
+                        step: 64
+                    )
+                    Text("\(model.settings.cacheMegabytes) MB. Applies now. Backward cache stays at most 128 MB.")
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.secondary)
+                }
+            }
+            Toggle("Verbose mpv log", isOn: binding(\.verboseLog))
+            note("Applies now.")
+            Button("Copy diagnostics") { model.copyDiagnostics() }
+            Button("Reset all settings", role: .destructive) { model.resetSettings() }
+        }
+        .formStyle(.grouped)
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text)
+            .font(Theme.caption)
+            .foregroundStyle(Theme.secondary)
+    }
+
+    private func refreshDevices() {
+        let found = model.audioOutputs()
+        devices = found.filter { $0.id != "auto" }
+    }
+
+    private func binding<Value>(_ keyPath: WritableKeyPath<PlayerSettings, Value>) -> Binding<Value> {
         Binding(
             get: { model.settings[keyPath: keyPath] },
             set: { value in model.updateSettings { $0[keyPath: keyPath] = value } }
@@ -111,6 +227,61 @@ struct SettingsView: View {
         panel.prompt = "Choose"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         model.updateSettings { $0.screenshotFolder = url.path }
+    }
+}
+
+struct ShortcutSettings: View {
+    var model: PlayerModel
+    @State private var query = ""
+
+    private var rows: [ShortcutCommand] {
+        let keyed = ShortcutCatalog.all
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return keyed }
+        return keyed.filter {
+            $0.title.localizedCaseInsensitiveContains(trimmed)
+                || $0.group.localizedCaseInsensitiveContains(trimmed)
+                || ShortcutMap.resolved($0, overrides: model.settings.shortcutOverrides).display.localizedCaseInsensitiveContains(trimmed)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.s8) {
+            TextField("Search shortcuts", text: $query)
+                .textFieldStyle(.roundedBorder)
+            if let conflict = model.shortcutConflict {
+                Text(conflict)
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.warning)
+            }
+            if model.shortcutCaptureID != nil {
+                Text("Press the new key. Esc cancels.")
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.secondary)
+            }
+            List(rows) { row in
+                HStack {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(row.title).font(Theme.body)
+                        Text(row.group).font(Theme.caption).foregroundStyle(Theme.secondary)
+                    }
+                    Spacer()
+                    let shown = ShortcutMap.resolved(row, overrides: model.settings.shortcutOverrides)
+                    Button(model.shortcutCaptureID == row.id ? "Press a key" : (shown.display.isEmpty ? "None" : shown.display)) {
+                        model.beginShortcutCapture(row.id)
+                    }
+                }
+            }
+            HStack {
+                Button("Restore defaults") {
+                    model.updateSettings { $0.shortcutOverrides = [:] }
+                    model.shortcutConflict = nil
+                    model.shortcutCaptureID = nil
+                }
+                Spacer()
+            }
+        }
+        .padding(Theme.s16)
     }
 }
 
@@ -173,13 +344,14 @@ struct ShortcutSheet: View {
     @State private var query = ""
 
     private var rows: [ShortcutCommand] {
-        let keyed = ShortcutCatalog.all.filter { !$0.token.isEmpty }
+        let keyed = ShortcutCatalog.all.filter { !$0.token.isEmpty || PlayerModel.shared.settings.shortcutOverrides[$0.id] != nil }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return keyed }
         return keyed.filter {
-            $0.title.localizedCaseInsensitiveContains(trimmed)
-                || $0.display.localizedCaseInsensitiveContains(trimmed)
-                || $0.group.localizedCaseInsensitiveContains(trimmed)
+            let shown = ShortcutMap.resolved($0, overrides: PlayerModel.shared.settings.shortcutOverrides)
+            return shown.title.localizedCaseInsensitiveContains(trimmed)
+                || shown.display.localizedCaseInsensitiveContains(trimmed)
+                || shown.group.localizedCaseInsensitiveContains(trimmed)
         }
     }
 
@@ -200,9 +372,10 @@ struct ShortcutSheet: View {
                             .font(Theme.bodyStrong)
                         Grid(alignment: .leading, horizontalSpacing: Theme.s24, verticalSpacing: Theme.s8) {
                             ForEach(grouped[group] ?? []) { row in
+                                let shown = ShortcutMap.resolved(row, overrides: PlayerModel.shared.settings.shortcutOverrides)
                                 GridRow {
-                                    Text(row.display).font(Theme.bodyDigits)
-                                    Text(row.title).font(Theme.body)
+                                    Text(shown.display.isEmpty ? "—" : shown.display).font(Theme.bodyDigits)
+                                    Text(shown.title).font(Theme.body)
                                 }
                             }
                         }

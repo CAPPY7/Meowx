@@ -18,7 +18,7 @@ struct ContentView: View {
     var body: some View {
         stage
             .frame(minWidth: Theme.windowMinWidth, minHeight: Theme.windowMinHeight)
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(model.settings.appearance == .dark ? .dark : nil)
             .background(WindowChrome(shown: model.chromeShown))
             .onAppear { model.start() }
         .onDrop(of: [.fileURL, .url], isTargeted: $model.dropTargeted, perform: drop)

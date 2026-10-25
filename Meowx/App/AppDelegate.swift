@@ -183,6 +183,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private static func handle(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if PlayerModel.shared.shortcutCaptureID != nil, let token = ShortcutKey.token(for: Int(event.keyCode)) {
+            PlayerModel.shared.takeShortcut(ShortcutInput(
+                token: token,
+                command: flags.contains(.command),
+                shift: flags.contains(.shift),
+                option: flags.contains(.option),
+                control: flags.contains(.control)
+            ))
+            return true
+        }
         let routing = KeyRouting(
             appModal: NSApp.modalWindow != nil,
             sheetAttached: NSApp.windows.contains { $0.attachedSheet != nil } || NSApp.keyWindow?.isSheet == true,
@@ -198,14 +209,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     option: flags.contains(.option),
                     control: flags.contains(.control)
                 )
-                if let shortcut = ShortcutCatalog.match(input), !shortcut.command {
+                if let shortcut = ShortcutMap.match(input, overrides: PlayerModel.shared.settings.shortcutOverrides), !shortcut.command {
                     uiLog.debug("shortcut \(shortcut.id, privacy: .public) ignored, text input")
                 }
             }
             return false
         }
         PlayerModel.shared.poke()
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard let token = ShortcutKey.token(for: Int(event.keyCode)) else { return false }
         let input = ShortcutInput(
             token: token,
@@ -214,8 +224,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             option: flags.contains(.option),
             control: flags.contains(.control)
         )
-        guard let shortcut = ShortcutCatalog.match(input) else { return false }
         let model = PlayerModel.shared
+        guard let shortcut = ShortcutMap.match(input, overrides: model.settings.shortcutOverrides) else { return false }
         if shortcut.id == "leaveFullScreen" {
             if model.playlistShown {
                 model.setPlaylistOpen(false)

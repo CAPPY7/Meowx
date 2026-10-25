@@ -106,10 +106,10 @@ public enum ShortcutCatalog {
         ShortcutCommand(id: "playPause", title: "Play or pause", group: "Playback", token: "space"),
         ShortcutCommand(id: "previous", title: "Previous", group: "Playback", token: "left", command: true),
         ShortcutCommand(id: "next", title: "Next", group: "Playback", token: "right", command: true),
-        ShortcutCommand(id: "seekBack", title: "Seek back 5 seconds", group: "Playback", token: "left"),
-        ShortcutCommand(id: "seekForward", title: "Seek forward 5 seconds", group: "Playback", token: "right"),
-        ShortcutCommand(id: "seekBack30", title: "Seek back 30 seconds", group: "Playback", token: "left", shift: true),
-        ShortcutCommand(id: "seekForward30", title: "Seek forward 30 seconds", group: "Playback", token: "right", shift: true),
+        ShortcutCommand(id: "seekBack", title: "Seek back", group: "Playback", token: "left"),
+        ShortcutCommand(id: "seekForward", title: "Seek forward", group: "Playback", token: "right"),
+        ShortcutCommand(id: "seekBack30", title: "Seek back further", group: "Playback", token: "left", shift: true),
+        ShortcutCommand(id: "seekForward30", title: "Seek forward further", group: "Playback", token: "right", shift: true),
         ShortcutCommand(id: "jump0", title: "Jump to 0%", group: "Playback", token: "0"),
         ShortcutCommand(id: "jump1", title: "Jump to 10%", group: "Playback", token: "1"),
         ShortcutCommand(id: "jump2", title: "Jump to 20%", group: "Playback", token: "2"),
@@ -196,6 +196,35 @@ public enum ShortcutCatalog {
         let keyed = all.filter { !$0.token.isEmpty }
         let lines = keyed.map { "| \($0.display) | \($0.title) |" }
         return (["| Key | Action |", "| --- | --- |"] + lines).joined(separator: "\n")
+    }
+}
+
+public enum ShortcutMap {
+    public static func resolved(_ command: ShortcutCommand, overrides: [String: KeyBinding]) -> ShortcutCommand {
+        guard let binding = overrides[command.id] else { return command }
+        return ShortcutCommand(
+            id: command.id,
+            title: command.title,
+            group: command.group,
+            token: binding.token,
+            command: binding.command,
+            shift: binding.shift,
+            option: binding.option,
+            control: binding.control
+        )
+    }
+
+    public static func match(_ input: ShortcutInput, overrides: [String: KeyBinding]) -> ShortcutCommand? {
+        ShortcutCatalog.all.map { resolved($0, overrides: overrides) }.first { $0.matches(input) }
+    }
+
+    /// Title of another action that already owns this key. Nil when the key is free.
+    public static func owner(of input: ShortcutInput, overrides: [String: KeyBinding], ignoring id: String) -> String? {
+        let taken = ShortcutCatalog.all
+            .filter { $0.id != id }
+            .map { resolved($0, overrides: overrides) }
+            .first { $0.matches(input) }
+        return taken?.title
     }
 }
 

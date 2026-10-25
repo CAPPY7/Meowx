@@ -95,9 +95,9 @@ struct ControlsView: View {
         HStack(spacing: Theme.s8) {
             volume
             Spacer(minLength: Theme.s4)
-            jumpButton(-10, symbol: "gobackward.10", help: "Back 10 seconds")
+            jumpButton(-model.settings.seekMedium, symbol: "gobackward.10", help: "Back \(Int(model.settings.seekMedium)) seconds")
             playButton
-            jumpButton(10, symbol: "goforward.10", help: "Forward 10 seconds")
+            jumpButton(model.settings.seekMedium, symbol: "goforward.10", help: "Forward \(Int(model.settings.seekMedium)) seconds")
             Spacer(minLength: Theme.s4)
             tracksButton
             speedButton
@@ -447,7 +447,10 @@ private struct SpeedPopover: View {
 
 extension View {
     func shortcutTip(_ id: String, title: String? = nil) -> some View {
-        let text = ShortcutCatalog.help(id, title: title)
+        let command = ShortcutCatalog.command(id).map {
+            ShortcutMap.resolved($0, overrides: PlayerModel.shared.settings.shortcutOverrides)
+        }
+        let text = command?.help(title: title) ?? (title ?? id)
         return help(text).accessibilityLabel(text)
     }
 }

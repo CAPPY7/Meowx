@@ -149,10 +149,10 @@ final class MPVVideoView: NSView, NSTouchBarDelegate {
                 PlayerModel.shared.toggleFullscreen()
             case .seekBackward:
                 uiLog.info("double click back 10")
-                PlayerModel.shared.seek(by: -10)
+                PlayerModel.shared.seek(by: -PlayerModel.shared.settings.seekMedium)
             case .seekForward:
                 uiLog.info("double click forward 10")
-                PlayerModel.shared.seek(by: 10)
+                PlayerModel.shared.seek(by: PlayerModel.shared.settings.seekMedium)
             case .togglePause, .none:
                 break
             }

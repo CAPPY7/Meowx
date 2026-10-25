@@ -292,10 +292,43 @@ final class MPVController {
     }
 
     @discardableResult
-    func screenshot(to url: URL, format: String) -> Bool {
+    func screenshot(to url: URL, format: String, subtitles: Bool = false) -> Bool {
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         setString("screenshot-format", format)
-        return command(["screenshot-to-file", url.path]) >= 0
+        let flag = subtitles ? "subtitles" : "video"
+        return command(["screenshot-to-file", url.path, flag]) >= 0
+    }
+
+    @discardableResult
+    func setAudioFilter(_ filter: String) -> Bool {
+        if filter.isEmpty { return command(["af", "clr"]) >= 0 }
+        return command(["af", "set", filter]) >= 0
+    }
+
+    func audioOutputs() -> [(id: String, name: String)] {
+        guard started else { return [] }
+        var node = mpv_node()
+        guard mpv_get_property(handle, "audio-device-list", MPV_FORMAT_NODE, &node) >= 0 else { return [] }
+        defer { mpv_free_node_contents(&node) }
+        guard node.format == MPV_FORMAT_NODE_ARRAY, let list = node.u.list else { return [] }
+        var result: [(id: String, name: String)] = []
+        for index in 0..<Int(list.pointee.num) {
+            let item = list.pointee.values[index]
+            guard item.format == MPV_FORMAT_NODE_MAP, let map = item.u.list else { continue }
+            var id = ""
+            var name = ""
+            for field in 0..<Int(map.pointee.num) {
+                guard let keyPtr = map.pointee.keys?[field] else { continue }
+                let key = String(cString: keyPtr)
+                let value = map.pointee.values[field]
+                guard value.format == MPV_FORMAT_STRING, let raw = value.u.string else { continue }
+                let text = String(cString: raw)
+                if key == "name" { id = text }
+                if key == "description" { name = text }
+            }
+            if !id.isEmpty { result.append((id, name.isEmpty ? id : name)) }
+        }
+        return result
     }
 
     func capturePNG() -> Data? {
@@ -316,6 +349,12 @@ final class MPVController {
         setDouble("sub-font-size", settings.subtitleSize)
         setString("sub-color", settings.subtitleColorHex)
         setDouble("sub-pos", settings.subtitlePosition)
+        setDouble("sub-border-size", settings.subtitleOutline)
+        setString("sub-codepage", settings.subtitleEncoding)
+        setString("tone-mapping", settings.toneMapping.rawValue)
+        setString("audio-device", settings.audioDevice)
+        setString("msg-level", settings.verboseLog ? "all=v" : "all=warn")
+        _ = setAudioFilter(AudioChain.filter(normalize: settings.loudnessNormalize, compress: settings.audioCompressor))
     }
 
     func snapshot() -> EngineSnapshot {

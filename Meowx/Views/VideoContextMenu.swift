@@ -25,10 +25,10 @@ enum VideoContextMenu {
         menu.addItem(.separator())
 
         let seek = NSMenu()
-        seek.addItem(item("Back 5 Seconds", key: arrow(.left), action: #selector(VideoMenuActions.back5)))
-        seek.addItem(item("Forward 5 Seconds", key: arrow(.right), action: #selector(VideoMenuActions.forward5)))
-        seek.addItem(item("Back 30 Seconds", key: arrow(.left), modifiers: .shift, action: #selector(VideoMenuActions.back30)))
-        seek.addItem(item("Forward 30 Seconds", key: arrow(.right), modifiers: .shift, action: #selector(VideoMenuActions.forward30)))
+        seek.addItem(item("Back \(Int(model.settings.seekShort)) Seconds", key: arrow(.left), action: #selector(VideoMenuActions.back5)))
+        seek.addItem(item("Forward \(Int(model.settings.seekShort)) Seconds", key: arrow(.right), action: #selector(VideoMenuActions.forward5)))
+        seek.addItem(item("Back \(Int(model.settings.seekLong)) Seconds", key: arrow(.left), modifiers: .shift, action: #selector(VideoMenuActions.back30)))
+        seek.addItem(item("Forward \(Int(model.settings.seekLong)) Seconds", key: arrow(.right), modifiers: .shift, action: #selector(VideoMenuActions.forward30)))
         seek.addItem(item("Go to Time…", key: "j", modifiers: .command, action: #selector(VideoMenuActions.goToTime)))
         seek.addItem(item("Start", key: functionKey(0xF729), action: #selector(VideoMenuActions.goToStart)))
         seek.addItem(item("End", key: functionKey(0xF72B), action: #selector(VideoMenuActions.goToEnd)))
@@ -225,10 +225,10 @@ final class VideoMenuActions: NSObject {
     @objc func togglePause() { PlayerModel.shared.togglePause() }
     @objc func previous() { PlayerModel.shared.previous(); PlayerModel.shared.poke() }
     @objc func next() { PlayerModel.shared.next(); PlayerModel.shared.poke() }
-    @objc func back5() { PlayerModel.shared.seek(by: -5) }
-    @objc func forward5() { PlayerModel.shared.seek(by: 5) }
-    @objc func back30() { PlayerModel.shared.seek(by: -30) }
-    @objc func forward30() { PlayerModel.shared.seek(by: 30) }
+    @objc func back5() { PlayerModel.shared.seek(by: -PlayerModel.shared.settings.seekShort) }
+    @objc func forward5() { PlayerModel.shared.seek(by: PlayerModel.shared.settings.seekShort) }
+    @objc func back30() { PlayerModel.shared.seek(by: -PlayerModel.shared.settings.seekLong) }
+    @objc func forward30() { PlayerModel.shared.seek(by: PlayerModel.shared.settings.seekLong) }
     @objc func goToTime() { PlayerModel.shared.timePrompt = true; PlayerModel.shared.poke() }
     @objc func goToStart() { PlayerModel.shared.seekToStart() }
     @objc func goToEnd() { PlayerModel.shared.seekToEnd() }

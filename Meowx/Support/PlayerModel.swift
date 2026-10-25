@@ -122,6 +122,8 @@ final class PlayerModel {
     var urlPrompt = false
     var timePrompt = false
     var shortcutPrompt = false
+    var shortcutCaptureID: String?
+    var shortcutConflict: String?
     var searchOpen = false
     var errorMessage: String?
     var errorTitle = "Can't play this"
@@ -182,6 +184,8 @@ final class PlayerModel {
     private init() {
         settings = SettingsStore.load()
         playlistShown = settings.playlistOpen
+        playlist.repeatMode = settings.endBehavior
+        if settings.rememberVolume { volume = settings.savedVolume }
     }
 
     func start() {
@@ -194,6 +198,7 @@ final class PlayerModel {
             videoView.controller = engine
             engine.installWakeup()
             self.engine = engine
+            engine.setVolume(volume)
         } else {
             engineError = "The playback engine didn't start. Install libmpv with brew install mpv and rebuild."
         }
@@ -212,6 +217,7 @@ final class PlayerModel {
     }
 
     func prepareToQuit() {
+        rememberVolumeIfNeeded()
         saveResume()
         timer?.invalidate()
         ThumbnailService.shared.shutdown()
@@ -349,6 +355,10 @@ final class PlayerModel {
         add(urls: [url], playNow: true)
     }
 
+    func audioOutputs() -> [(id: String, name: String)] {
+        engine?.audioOutputs() ?? []
+    }
+
     func continueWatching() -> [ResumeStore.Card] {
         resume.latest(limit: 6)
     }
@@ -397,6 +407,8 @@ final class PlayerModel {
         case .all: playlist.repeatMode = .one
         case .one: playlist.repeatMode = .off
         }
+        let mode = playlist.repeatMode
+        updateSettings { $0.endBehavior = mode }
         let name: String
         switch playlist.repeatMode {
         case .off: name = "off"
@@ -545,6 +557,7 @@ final class PlayerModel {
             muted = false
             engine?.setMuted(false)
         }
+        rememberVolumeIfNeeded()
     }
 
     func nudgeVolume(_ delta: Double) {
@@ -569,9 +582,9 @@ final class PlayerModel {
     func nudgeSpeed(_ direction: Int) {
         guard allow("speed") else { return }
         if direction > 0 {
-            setSpeed(Self.speedSteps.first { $0 > speed + 0.01 } ?? 4)
+            setSpeed(settings.speedStep.nudged(speed, direction: 1))
         } else {
-            setSpeed(Self.speedSteps.last { $0 < speed - 0.01 } ?? 0.25)
+            setSpeed(settings.speedStep.nudged(speed, direction: -1))
         }
     }
 
@@ -748,10 +761,10 @@ final class PlayerModel {
         case "playPause": togglePause()
         case "previous": previous()
         case "next": next()
-        case "seekBack": seek(by: -5)
-        case "seekForward": seek(by: 5)
-        case "seekBack30": seek(by: -30)
-        case "seekForward30": seek(by: 30)
+        case "seekBack": seek(by: -settings.seekShort)
+        case "seekForward": seek(by: settings.seekShort)
+        case "seekBack30": seek(by: -settings.seekLong)
+        case "seekForward30": seek(by: settings.seekLong)
         case "volumeUp": nudgeVolume(5)
         case "volumeDown": nudgeVolume(-5)
         case "volumeUp10": nudgeVolume(10)
@@ -1101,7 +1114,7 @@ final class PlayerModel {
         let folder = settings.resolvedScreenshotFolder
         let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let url = folder.appendingPathComponent("Meowx-\(stamp).\(settings.screenshotFormat.rawValue)")
-        let saved = engine?.screenshot(to: url, format: settings.screenshotFormat.rawValue) == true
+        let saved = engine?.screenshot(to: url, format: settings.screenshotFormat.rawValue, subtitles: settings.screenshotWithSubtitles) == true
         if saved {
             flashStatus("Saved \(url.lastPathComponent)")
         } else {
@@ -1113,22 +1126,85 @@ final class PlayerModel {
     }
 
     func updateSettings(_ body: (inout PlayerSettings) -> Void) {
+        let old = settings
         var copy = settings
         body(&copy)
         copy.cacheMegabytes = PlayerSettings.clampedCache(copy.cacheMegabytes)
         copy.chromeHideDelay = PlayerSettings.clampedHideDelay(copy.chromeHideDelay)
+        copy.seekShort = PlayerSettings.clampedSeek(copy.seekShort)
+        copy.seekMedium = PlayerSettings.clampedSeek(copy.seekMedium)
+        copy.seekLong = PlayerSettings.clampedSeek(copy.seekLong)
+        copy.subtitleOutline = PlayerSettings.clampedOutline(copy.subtitleOutline)
         settings = copy
         SettingsStore.save(copy)
+        playlist.repeatMode = copy.endBehavior
+        if copy.deinterlaceOnOpen != old.deinterlaceOnOpen { deinterlace = copy.deinterlaceOnOpen }
+        if copy.defaultAspect != old.defaultAspect { aspectOverride = copy.defaultAspect }
+        if copy.subtitleDelayDefault != old.subtitleDelayDefault {
+            subDelay = copy.subtitleDelayDefault
+            engine?.setDouble("sub-delay", subDelay)
+        }
         engine?.apply(copy)
+        applyVideoAdjustments()
         evaluateChrome(reason: "settings")
     }
 
     func resetSettings() {
         settings = .default
         playlistShown = settings.playlistOpen
+        playlist.repeatMode = settings.endBehavior
+        volume = settings.savedVolume
+        engine?.setVolume(volume)
         SettingsStore.save(settings)
         engine?.apply(settings)
+        applyVideoAdjustments()
         evaluateChrome(reason: "settings")
+    }
+
+    func beginShortcutCapture(_ id: String) {
+        shortcutCaptureID = id
+        shortcutConflict = nil
+    }
+
+    func takeShortcut(_ input: ShortcutInput) {
+        guard let id = shortcutCaptureID else { return }
+        if input.token == "escape", !input.command, !input.shift, !input.option, !input.control {
+            shortcutCaptureID = nil
+            shortcutConflict = nil
+            return
+        }
+        if let owner = ShortcutMap.owner(of: input, overrides: settings.shortcutOverrides, ignoring: id) {
+            shortcutConflict = "\(owner) already uses that key."
+            return
+        }
+        updateSettings { $0.shortcutOverrides[id] = KeyBinding(input) }
+        shortcutCaptureID = nil
+        shortcutConflict = nil
+    }
+
+    func copyDiagnostics() {
+        var lines = [
+            "Meowx \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")",
+            ProcessInfo.processInfo.operatingSystemVersionString,
+            "yt-dlp \(ytdlpPath ?? "not installed")",
+            "hardware decoding \(settings.hardwareDecoding)",
+            "cache \(settings.cacheMegabytes) MB",
+            "audio device \(settings.audioDevice)",
+            "tone mapping \(settings.toneMapping.rawValue)"
+        ]
+        if let errorMessage { lines.append("last problem \(errorMessage)") }
+        if let engineError { lines.append(engineError) }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
+        flashStatus("Diagnostics copied")
+    }
+
+    private func rememberVolumeIfNeeded() {
+        guard settings.rememberVolume, abs(volume - settings.savedVolume) >= 1 else { return }
+        var copy = settings
+        copy.savedVolume = volume
+        settings = copy
+        SettingsStore.save(copy)
     }
 
     func poke() {
@@ -1208,8 +1284,10 @@ final class PlayerModel {
         tracks = []
         loopA = nil
         loopB = nil
-        subDelay = 0
+        subDelay = settings.subtitleDelayDefault
         audioDelay = 0
+        aspectOverride = settings.defaultAspect
+        deinterlace = settings.deinterlaceOnOpen
         position = 0
         chapters = []
         chapterIndex = -1
@@ -1536,10 +1614,11 @@ extension PlayerModel: EngineDelegate {
         refreshMetadata()
         engine?.apply(settings)
         applyVideoAdjustments()
+        engine?.setDouble("sub-delay", subDelay)
         refreshChapters()
         if resumeOnLoad, let current = playlist.current {
             let key = ResumeStore.key(for: current.url)
-            if let saved = resume.position(for: key), saved > 3 {
+            if settings.resumeOnOpen, let saved = resume.position(for: key), saved > 3 {
                 engine?.seekAbsolute(saved, exact: true)
                 showStatus("Resumed at \(TimeFormat.string(saved))")
             }
@@ -1566,6 +1645,12 @@ extension PlayerModel: EngineDelegate {
             guard endGate.consume(reached: true) else { return }
             if fileLoop { return }
             saveResume()
+            guard EndChoice.shouldAdvance(playNext: settings.playNext, repeatMode: playlist.repeatMode) else {
+                pause()
+                showStatus("End")
+                evaluateChrome(reason: "eof")
+                return
+            }
             switch playlist.afterEndOfFile() {
             case .play(let item):
                 load(item, resume: playlist.repeatMode != .one)

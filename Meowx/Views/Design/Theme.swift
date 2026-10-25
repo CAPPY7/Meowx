@@ -68,7 +68,8 @@ enum Theme {
     static let sheetSearchWidth: CGFloat = 480
     static let sheetSearchHeight: CGFloat = 420
     static let listMin: CGFloat = 180
-    static let settingsWidth: CGFloat = 560
+    static let settingsWidth: CGFloat = 620
+    static let settingsHeight: CGFloat = 560
     static let statsLabel: CGFloat = 64
     static let windowMinWidth: CGFloat = 780
     static let windowMinHeight: CGFloat = 480

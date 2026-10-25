@@ -63,10 +63,10 @@ struct MeowxCommands: Commands {
             Button("Previous") { PlayerModel.shared.previous() }
                 .keyboardShortcut(.leftArrow, modifiers: .command)
             Divider()
-            Button(menuTitle("Seek Forward 5 Seconds", "seekForward")) { PlayerModel.shared.seek(by: 5) }
-            Button(menuTitle("Seek Backward 5 Seconds", "seekBack")) { PlayerModel.shared.seek(by: -5) }
-            Button(menuTitle("Seek Forward 30 Seconds", "seekForward30")) { PlayerModel.shared.seek(by: 30) }
-            Button(menuTitle("Seek Backward 30 Seconds", "seekBack30")) { PlayerModel.shared.seek(by: -30) }
+            Button(menuTitle("Seek Forward", "seekForward")) { PlayerModel.shared.seek(by: PlayerModel.shared.settings.seekShort) }
+            Button(menuTitle("Seek Backward", "seekBack")) { PlayerModel.shared.seek(by: -PlayerModel.shared.settings.seekShort) }
+            Button(menuTitle("Seek Forward Further", "seekForward30")) { PlayerModel.shared.seek(by: PlayerModel.shared.settings.seekLong) }
+            Button(menuTitle("Seek Backward Further", "seekBack30")) { PlayerModel.shared.seek(by: -PlayerModel.shared.settings.seekLong) }
             Button(menuTitle("Go to Start", "seekStart")) { PlayerModel.shared.seekToStart() }
             Button(menuTitle("Go to End", "seekEnd")) { PlayerModel.shared.seekToEnd() }
             Button(menuTitle("Previous Chapter", "previousChapter")) { PlayerModel.shared.stepChapter(-1) }
@@ -133,7 +133,9 @@ struct MeowxCommands: Commands {
 
     /// Bare keys stay off the menu so they cannot steal typing. Command shortcuts stay, because the menu column can show them safely.
     private func menuTitle(_ title: String, _ id: String) -> String {
-        guard let shortcut = ShortcutCatalog.command(id), !shortcut.command, !shortcut.display.isEmpty else { return title }
+        guard let command = ShortcutCatalog.command(id) else { return title }
+        let shortcut = ShortcutMap.resolved(command, overrides: PlayerModel.shared.settings.shortcutOverrides)
+        guard !shortcut.command, !shortcut.display.isEmpty else { return title }
         return "\(title) (\(shortcut.display))"
     }
 }
