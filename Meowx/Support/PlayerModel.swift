@@ -37,6 +37,7 @@ final class PlayerModel {
     }
 
     private var statusToken = UUID()
+    private var pendingTrackAnnouncement: String?
     private var lastPoke = Date()
     private var lastHideSchedule = Date.distantPast
     private var hideWork: DispatchWorkItem?
@@ -98,6 +99,7 @@ final class PlayerModel {
     var searchOpen = false
     var errorMessage: String?
     var statusText: String?
+    var statusProgress: Double?
     var engineError: String?
 
     var displayTitle: String {
@@ -247,6 +249,7 @@ final class PlayerModel {
 
     func toggleShuffle() {
         playlist.setShuffle(!playlist.shuffleEnabled)
+        flashStatus(playlist.shuffleEnabled ? "Shuffle on" : "Shuffle off")
     }
 
     func cycleRepeat() {
@@ -255,6 +258,13 @@ final class PlayerModel {
         case .all: playlist.repeatMode = .one
         case .one: playlist.repeatMode = .off
         }
+        let name: String
+        switch playlist.repeatMode {
+        case .off: name = "off"
+        case .all: name = "all"
+        case .one: name = "one"
+        }
+        flashStatus("Repeat: \(name)")
     }
 
     func savePlaylist() {
@@ -340,7 +350,8 @@ final class PlayerModel {
         guard allow("seek") else { return }
         engine?.seekRelative(delta)
         position = max(0, position + delta)
-        poke()
+        let whole = Int(delta.rounded())
+        flashStatus(whole >= 0 ? "Seek +\(whole) s" : "Seek \(whole) s")
     }
 
     func seek(to seconds: Double, exact: Bool) {
@@ -384,13 +395,14 @@ final class PlayerModel {
     func nudgeVolume(_ delta: Double) {
         guard allow("volume") else { return }
         setVolume(volume + delta)
+        flashVolume()
     }
 
     func toggleMute() {
         guard passGate() else { return }
         muted.toggle()
         engine?.setMuted(muted)
-        flashStatus(muted ? "Muted" : "Volume \(Int(volume.rounded()))%")
+        flashVolume()
     }
 
     func setSpeed(_ value: Double) {
@@ -419,12 +431,22 @@ final class PlayerModel {
 
     func cycleSubtitles() {
         guard passGate() else { return }
+        pendingTrackAnnouncement = "sub"
         engine?.cycle("sub")
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshTracks()
+            self?.announceTracksIfNeeded()
+        }
     }
 
     func cycleAudio() {
         guard passGate() else { return }
+        pendingTrackAnnouncement = "audio"
         engine?.cycle("audio")
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshTracks()
+            self?.announceTracksIfNeeded()
+        }
     }
 
     func selectSubtitle(_ id: Int) {
@@ -467,7 +489,7 @@ final class PlayerModel {
         )
         if action.volumeDelta != 0 {
             setVolume(volume + action.volumeDelta)
-            flashStatus(muted ? "Muted" : "Volume \(Int(volume.rounded()))%")
+            flashVolume()
         }
         if action.seekDelta != 0 {
             engine?.seekRelative(action.seekDelta)
@@ -496,19 +518,60 @@ final class PlayerModel {
         flashStatus("Copied")
     }
 
-    func flashStatus(_ text: String) {
-        showStatus(text)
+    func flashStatus(_ text: String, progress: Double? = nil) {
+        showStatus(text, progress: progress)
+        poke()
+    }
+
+    func flashVolume() {
+        let level = muted ? 0 : min(1, max(0, volume / 200))
+        flashStatus(muted ? "Muted" : "Volume \(Int(volume.rounded()))%", progress: level)
+    }
+
+    func performShortcut(_ id: String) {
+        switch id {
+        case "playPause": togglePause()
+        case "previous": previous()
+        case "next": next()
+        case "seekBack": seek(by: -5)
+        case "seekForward": seek(by: 5)
+        case "seekBack30": seek(by: -30)
+        case "seekForward30": seek(by: 30)
+        case "volumeUp": nudgeVolume(5)
+        case "volumeDown": nudgeVolume(-5)
+        case "mute": toggleMute()
+        case "cycleAudio": cycleAudio()
+        case "cycleSubtitles": cycleSubtitles()
+        case "speedDown": nudgeSpeed(-1)
+        case "speedUp": nudgeSpeed(1)
+        case "speedReset": resetSpeed()
+        case "frameBack": frameStep(backward: true)
+        case "frameForward": frameStep(backward: false)
+        case "jump": timePrompt = true
+        case "screenshot": screenshot()
+        case "fullScreen", "leaveFullScreen": toggleFullscreen()
+        case "pictureInPicture": togglePictureInPicture()
+        case "alwaysOnTop": toggleAlwaysOnTop()
+        case "stats": toggleStats()
+        case "open": openFiles(playNow: true)
+        case "openURL": urlPrompt = true
+        case "addToPlaylist": openFiles(playNow: false)
+        default:
+            break
+        }
         poke()
     }
 
     func setLoopA() {
         loopA = position
         engine?.setString("ab-loop-a", String(format: "%.3f", position))
+        flashStatus("Loop A set")
     }
 
     func setLoopB() {
         loopB = position
         engine?.setString("ab-loop-b", String(format: "%.3f", position))
+        flashStatus("Loop B set")
     }
 
     func clearLoop() {
@@ -516,6 +579,7 @@ final class PlayerModel {
         loopB = nil
         engine?.setString("ab-loop-a", "no")
         engine?.setString("ab-loop-b", "no")
+        flashStatus("A-B loop cleared")
     }
 
     func toggleStats() {
@@ -554,7 +618,7 @@ final class PlayerModel {
         let url = folder.appendingPathComponent("Meowx-\(stamp).\(settings.screenshotFormat.rawValue)")
         let saved = engine?.screenshot(to: url, format: settings.screenshotFormat.rawValue) == true
         if saved {
-            showStatus("Saved screenshot")
+            flashStatus("Saved \(url.lastPathComponent)")
         } else {
             errorMessage = "Couldn't save the screenshot."
         }
@@ -739,13 +803,16 @@ final class PlayerModel {
         }
     }
 
-    private func showStatus(_ text: String) {
+    private func showStatus(_ text: String, progress: Double? = nil) {
         statusText = text
+        statusProgress = progress
+        uiLog.info("osd \(text, privacy: .public)")
         statusToken = UUID()
         let token = statusToken
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             guard let self, self.statusToken == token else { return }
             self.statusText = nil
+            self.statusProgress = nil
         }
     }
 
@@ -921,7 +988,19 @@ extension PlayerModel: EngineDelegate {
 
     func engineTracksChanged() {
         refreshTracks()
+        announceTracksIfNeeded()
         evaluateChrome(reason: "tracks")
+    }
+
+    private func announceTracksIfNeeded() {
+        guard let kind = pendingTrackAnnouncement else { return }
+        pendingTrackAnnouncement = nil
+        if kind == "sub" {
+            let name = subtitleTrackID <= 0 ? "Subtitles off" : (subtitleTracks.first { $0.id == subtitleTrackID }?.label ?? "Subtitles off")
+            flashStatus(name)
+        } else if kind == "audio" {
+            flashStatus(audioTracks.first { $0.id == audioTrackID }?.label ?? "Audio")
+        }
     }
 }
 

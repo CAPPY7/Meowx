@@ -76,27 +76,37 @@ Choose **Video > Set as Default Player**. macOS has to accept the change. If it 
 
 ## Keyboard shortcuts
 
+These rows are the same list the app uses for keys, tooltips, and Help > Keyboard Shortcuts.
+
 | Key | Action |
 | --- | --- |
 | Space | Play or pause |
-| Left / Right | Seek 5 seconds |
-| Shift + Left / Right | Seek 30 seconds |
-| Command + Left / Right | Previous or next item |
-| Up / Down | Volume |
+| Cmd+Left | Previous |
+| Cmd+Right | Next |
+| Left | Seek back 5 seconds |
+| Right | Seek forward 5 seconds |
+| Shift+Left | Seek back 30 seconds |
+| Shift+Right | Seek forward 30 seconds |
+| Up | Volume up |
+| Down | Volume down |
 | M | Mute |
-| F | Full screen |
-| S | Cycle subtitles |
-| A | Cycle audio |
-| [ / ] | Speed down or up |
+| A | Audio tracks |
+| S | Subtitles |
+| [ | Speed down |
+| ] | Speed up |
 | \ | Reset speed |
-| , / . | Previous or next frame |
-| I | Stats |
+| , | Previous frame |
+| . | Next frame |
+| Cmd+J | Go to time |
+| Shift+Cmd+S | Screenshot |
+| F | Full screen |
+| Esc | Leave full screen |
 | P | Picture in Picture |
-| Command + O | Open file |
-| Command + Shift + O | Add to playlist |
-| Command + U | Open URL |
-| Command + Shift + S | Screenshot |
-| Command + T | Always on top |
+| Cmd+T | Always on top |
+| I | Stats |
+| Cmd+O | Open |
+| Cmd+U | Open URL |
+| Shift+Cmd+O | Add to playlist |
 
 ## Supported formats
 

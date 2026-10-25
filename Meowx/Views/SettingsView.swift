@@ -167,36 +167,41 @@ struct TimeSheet: View {
 }
 
 struct ShortcutSheet: View {
-    private let rows: [(String, String)] = [
-        ("Space", "Play or pause"),
-        ("Left / Right", "Seek 5 seconds"),
-        ("Shift + Left / Right", "Seek 30 seconds"),
-        ("Command + Left / Right", "Previous or next"),
-        ("Up / Down", "Volume"),
-        ("M", "Mute"),
-        ("F", "Full screen"),
-        ("S", "Cycle subtitles"),
-        ("A", "Cycle audio"),
-        ("[ / ]", "Speed down or up"),
-        ("\\", "Reset speed"),
-        (", / .", "Previous or next frame"),
-        ("I", "Stats"),
-        ("P", "Picture in Picture"),
-        ("Command + O", "Open file"),
-        ("Command + U", "Open URL"),
-        ("Command + Shift + S", "Screenshot")
-    ]
+    @State private var query = ""
+
+    private var rows: [ShortcutCommand] {
+        let keyed = ShortcutCatalog.all.filter { !$0.token.isEmpty }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return keyed }
+        return keyed.filter {
+            $0.title.localizedCaseInsensitiveContains(trimmed)
+                || $0.display.localizedCaseInsensitiveContains(trimmed)
+                || $0.group.localizedCaseInsensitiveContains(trimmed)
+        }
+    }
+
+    private var grouped: [String: [ShortcutCommand]] {
+        Dictionary(grouping: rows, by: \.group)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Keyboard shortcuts")
                 .font(.title3.weight(.semibold))
+            TextField("Search", text: $query)
+                .textFieldStyle(.roundedBorder)
             ScrollView {
-                Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 8) {
-                    ForEach(rows, id: \.0) { row in
-                        GridRow {
-                            Text(row.0).font(.callout.monospaced())
-                            Text(row.1).font(.callout)
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(grouped.keys.sorted(), id: \.self) { group in
+                        Text(group)
+                            .font(.headline)
+                        Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 8) {
+                            ForEach(grouped[group] ?? []) { row in
+                                GridRow {
+                                    Text(row.display).font(.callout.monospaced())
+                                    Text(row.title).font(.callout)
+                                }
+                            }
                         }
                     }
                 }
@@ -209,7 +214,7 @@ struct ShortcutSheet: View {
             }
         }
         .padding(20)
-        .frame(width: 460, height: 420)
+        .frame(width: 460, height: 460)
     }
 }
 

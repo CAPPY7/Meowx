@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.5
+
+- One shortcut list drives the keys, the Help sheet, the tooltips, and the README table.
+- Icon buttons name themselves and their shortcut. Playlist rows show the full path.
+- Audio and subtitle menus check the current track, say when none are available, and show the delay.
+- Volume, seek, speed, tracks, loop, shuffle, and screenshots show a short toast, including while the controls are hidden.
+
 ## 1.0.4
 
 - While a video plays, the title, traffic lights, playlist, and playback controls hide together. Settings control the delay. Audio and pause keep them visible.

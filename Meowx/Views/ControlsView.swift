@@ -1,3 +1,4 @@
+import MeowxCore
 import SwiftUI
 
 struct ControlsView: View {
@@ -16,12 +17,12 @@ struct ControlsView: View {
                 audioMenu
                 loopButtons
                 Button { model.screenshot() } label: { Image(systemName: "camera") }
-                    .help("Screenshot")
+                    .shortcutTip("screenshot")
                     .disabled(model.playlist.current == nil)
                 Button { model.togglePictureInPicture() } label: { Image(systemName: model.pictureInPicture ? "pip.exit" : "pip.enter") }
-                    .help("Picture in Picture")
+                    .shortcutTip("pictureInPicture")
                 Button { model.toggleFullscreen() } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }
-                    .help("Full screen")
+                    .shortcutTip("fullScreen")
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
@@ -49,6 +50,7 @@ struct ControlsView: View {
                         if !editing { model.endScrub() }
                     }
                 )
+                .shortcutTip("seekBar")
                 .background {
                     GeometryReader { proxy in
                         Color.clear
@@ -92,14 +94,14 @@ struct ControlsView: View {
     private var transport: some View {
         HStack(spacing: 2) {
             Button { model.previous() } label: { Image(systemName: "backward.fill") }
-                .help("Previous")
+                .shortcutTip("previous")
             Button { model.togglePause() } label: {
                 Image(systemName: model.paused ? "play.fill" : "pause.fill")
                     .frame(width: 22)
             }
-            .help(model.paused ? "Play" : "Pause")
+            .shortcutTip("playPause", title: model.paused ? "Play" : "Pause")
             Button { model.next() } label: { Image(systemName: "forward.fill") }
-                .help("Next")
+                .shortcutTip("next")
         }
     }
 
@@ -108,10 +110,10 @@ struct ControlsView: View {
             Button { model.toggleMute() } label: {
                 Image(systemName: model.muted || model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
             }
-            .help("Mute")
+            .shortcutTip("mute")
             Slider(value: Binding(get: { model.muted ? 0 : model.volume }, set: { model.setVolume($0) }), in: 0...200)
                 .frame(width: 90)
-                .help("Volume")
+                .shortcutTip("volumeSlider", title: "Volume (Up/Down)")
         }
     }
 
@@ -125,19 +127,26 @@ struct ControlsView: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .help("Playback speed")
+        .shortcutTip("speedUp", title: "Speed ([ ] \\)")
     }
 
     private var subtitleMenu: some View {
         Menu {
-            Button("Off") { model.selectSubtitle(0) }
-            ForEach(model.subtitleTracks) { track in
-                Button(track.label) { model.selectSubtitle(track.id) }
+            Picker("Subtitles", selection: Binding(get: { model.subtitleTrackID }, set: { model.selectSubtitle($0) })) {
+                Text("Off").tag(0)
+                ForEach(model.subtitleTracks) { track in
+                    Text(track.label).tag(track.id)
+                }
+            }
+            .pickerStyle(.inline)
+            if model.subtitleTracks.isEmpty {
+                Text("None available")
             }
             Divider()
             Button("Add subtitle file…") { model.openSubtitleFile() }
             Button("Search online…") { model.searchOpen = true }
             Divider()
+            Text(String(format: "Subtitle delay: %+.1f s", model.subDelay))
             Button("Subtitle earlier") { model.nudgeSubDelay(-0.1) }
             Button("Subtitle later") { model.nudgeSubDelay(0.1) }
         } label: {
@@ -145,18 +154,23 @@ struct ControlsView: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .help("Subtitles")
+        .shortcutTip("cycleSubtitles")
     }
 
     private var audioMenu: some View {
         Menu {
-            ForEach(model.audioTracks) { track in
-                Button(track.label) { model.selectAudio(track.id) }
-            }
             if model.audioTracks.isEmpty {
-                Button("No extra audio tracks") {}.disabled(true)
+                Text("None available")
+            } else {
+                Picker("Audio", selection: Binding(get: { model.audioTrackID }, set: { model.selectAudio($0) })) {
+                    ForEach(model.audioTracks) { track in
+                        Text(track.label).tag(track.id)
+                    }
+                }
+                .pickerStyle(.inline)
             }
             Divider()
+            Text(String(format: "Audio delay: %+.1f s", model.audioDelay))
             Button("Audio earlier") { model.nudgeAudioDelay(-0.1) }
             Button("Audio later") { model.nudgeAudioDelay(0.1) }
         } label: {
@@ -164,7 +178,7 @@ struct ControlsView: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .help("Audio")
+        .shortcutTip("cycleAudio")
     }
 
     private var loopButtons: some View {
@@ -172,19 +186,27 @@ struct ControlsView: View {
             Button("A") { model.setLoopA() }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(model.loopA == nil ? .primary : Color.accentColor)
-                .help("Set loop start")
+                .shortcutTip("loopStart")
             Button("B") { model.setLoopB() }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(model.loopB == nil ? .primary : Color.accentColor)
-                .help("Set loop end")
+                .shortcutTip("loopEnd")
             if model.loopA != nil || model.loopB != nil {
                 Button { model.clearLoop() } label: { Image(systemName: "xmark") }
                     .help("Clear A-B loop")
+                    .accessibilityLabel("Clear A-B loop")
             }
         }
     }
 
     private func speedLabel(_ speed: Double) -> String {
         speed == floor(speed) ? String(format: "%.0f×", speed) : String(format: "%g×", speed)
+    }
+}
+
+extension View {
+    func shortcutTip(_ id: String, title: String? = nil) -> some View {
+        let text = ShortcutCatalog.help(id, title: title)
+        return help(text).accessibilityLabel(text)
     }
 }

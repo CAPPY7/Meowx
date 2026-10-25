@@ -1,4 +1,5 @@
 import AppKit
+import MeowxCore
 import os
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -37,51 +38,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PlayerModel.shared.poke()
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.option) || flags.contains(.control) { return false }
-        let command = flags.contains(.command)
-        let shift = flags.contains(.shift)
+        guard let token = Self.token(for: event.keyCode) else { return false }
+        let input = ShortcutInput(
+            token: token,
+            command: flags.contains(.command),
+            shift: flags.contains(.shift)
+        )
+        guard let shortcut = ShortcutCatalog.match(input) else { return false }
         let model = PlayerModel.shared
-        if command && shift && event.keyCode == 1 {
-            model.screenshot()
-            return true
-        }
-        if command && !shift && event.keyCode == 123 {
-            model.previous()
-            return true
-        }
-        if command && !shift && event.keyCode == 124 {
-            model.next()
-            return true
-        }
-        if command && !shift && event.keyCode == 38 {
-            model.timePrompt = true
-            return true
-        }
-        if command { return false }
-        switch event.keyCode {
-        case 49: model.togglePause()
-        case 123: model.seek(by: shift ? -30 : -5)
-        case 124: model.seek(by: shift ? 30 : 5)
-        case 125: model.nudgeVolume(-5)
-        case 126: model.nudgeVolume(5)
-        case 46: model.toggleMute()
-        case 3: model.toggleFullscreen()
-        case 1: model.cycleSubtitles()
-        case 0: model.cycleAudio()
-        case 34: model.toggleStats()
-        case 35: model.togglePictureInPicture()
-        case 33: model.nudgeSpeed(-1)
-        case 30: model.nudgeSpeed(1)
-        case 42: model.resetSpeed()
-        case 43: model.frameStep(backward: true)
-        case 47: model.frameStep(backward: false)
-        case 53:
-            guard model.fullscreen else { return false }
-            model.toggleFullscreen()
-        default:
-            return false
-        }
-        uiLog.debug("shortcut keyCode \(event.keyCode, privacy: .public)")
+        if shortcut.id == "leaveFullScreen", !model.fullscreen { return false }
+        uiLog.debug("shortcut \(shortcut.id, privacy: .public)")
+        model.performShortcut(shortcut.id)
         return true
+    }
+
+    private static func token(for keyCode: UInt16) -> String? {
+        switch keyCode {
+        case 49: return "space"
+        case 123: return "left"
+        case 124: return "right"
+        case 125: return "down"
+        case 126: return "up"
+        case 53: return "escape"
+        case 0: return "a"
+        case 1: return "s"
+        case 3: return "f"
+        case 17: return "t"
+        case 31: return "o"
+        case 32: return "u"
+        case 34: return "i"
+        case 35: return "p"
+        case 38: return "j"
+        case 30: return "bracketright"
+        case 33: return "bracketleft"
+        case 42: return "backslash"
+        case 43: return "comma"
+        case 46: return "m"
+        case 47: return "period"
+        default: return nil
+        }
     }
 
     private static var isTyping: Bool {

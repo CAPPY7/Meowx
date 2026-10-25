@@ -1,4 +1,5 @@
 import AppKit
+import MeowxCore
 import SwiftUI
 
 struct PlaylistView: View {
@@ -23,6 +24,8 @@ struct PlaylistView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .help(item.url.isFileURL ? item.url.path : item.url.absoluteString)
+                    .accessibilityLabel(item.title)
                     .contextMenu {
                         Button("Play") { model.play(id: item.id) }
                         if item.url.isFileURL {
@@ -40,23 +43,32 @@ struct PlaylistView: View {
             }
             HStack {
                 Button { model.openFiles(playNow: false) } label: { Image(systemName: "plus") }
-                    .help("Add to playlist")
+                    .shortcutTip("addToPlaylist", title: "Add to playlist")
                 Button { model.toggleShuffle() } label: { Image(systemName: "shuffle") }
                     .foregroundStyle(model.playlist.shuffleEnabled ? Color.accentColor : Color.secondary)
-                    .help("Shuffle")
+                    .shortcutTip("shuffle")
                 Button { model.cycleRepeat() } label: {
                     Image(systemName: model.playlist.repeatMode == .one ? "repeat.1" : "repeat")
                 }
                 .foregroundStyle(model.playlist.repeatMode == .off ? Color.secondary : Color.accentColor)
-                .help("Repeat")
+                .shortcutTip("repeat", title: "Repeat: \(repeatName)")
                 Spacer()
                 Button { model.savePlaylist() } label: { Image(systemName: "square.and.arrow.down") }
                     .help("Save playlist")
+                    .accessibilityLabel("Save playlist")
                     .disabled(model.playlist.items.isEmpty)
             }
             .buttonStyle(.borderless)
             .padding(8)
         }
         .navigationTitle("Playlist")
+    }
+
+    private var repeatName: String {
+        switch model.playlist.repeatMode {
+        case .off: return "off"
+        case .all: return "all"
+        case .one: return "one"
+        }
     }
 }

@@ -52,6 +52,8 @@ struct MeowxCommands: Commands {
                 .keyboardShortcut(.rightArrow, modifiers: .shift)
             Button("Seek Backward 30 Seconds") { PlayerModel.shared.seek(by: -30) }
                 .keyboardShortcut(.leftArrow, modifiers: .shift)
+            Button("Go to Time…") { PlayerModel.shared.timePrompt = true }
+                .keyboardShortcut("j")
             Button("Next Frame") { PlayerModel.shared.frameStep(backward: false) }
                 .keyboardShortcut(".", modifiers: [])
             Button("Previous Frame") { PlayerModel.shared.frameStep(backward: true) }

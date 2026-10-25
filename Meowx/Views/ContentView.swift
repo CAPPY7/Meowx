@@ -1,4 +1,5 @@
 import AppKit
+import MeowxCore
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -155,15 +156,25 @@ struct ContentView: View {
 
     private func statusBadge(_ text: String) -> some View {
         VStack {
-            Text(text)
-                .font(.callout.weight(.medium))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(.black.opacity(0.6), in: Capsule())
-                .foregroundStyle(.white)
+            VStack(spacing: 6) {
+                Text(text)
+                    .font(.callout.weight(.medium))
+                if let progress = model.statusProgress {
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(.white.opacity(0.28))
+                        Capsule().fill(.white).frame(width: 120 * progress)
+                    }
+                    .frame(width: 120, height: 4)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 10))
+            .foregroundStyle(.white)
             Spacer()
         }
-        .padding(.top, 16)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 28)
         .allowsHitTesting(false)
     }
 
@@ -183,20 +194,20 @@ struct ContentView: View {
             Button(action: togglePlaylist) {
                 Image(systemName: "sidebar.left")
             }
-            .help("Show playlist")
+            .shortcutTip("showPlaylist")
             Text(model.playlist.current == nil ? "Meowx" : model.displayTitle)
                 .font(.headline)
                 .lineLimit(1)
             Spacer(minLength: 8)
             Button { model.openFiles(playNow: true) } label: { Image(systemName: "folder") }
-                .help("Open")
+                .shortcutTip("open")
             Button { model.urlPrompt = true } label: { Image(systemName: "link") }
-                .help("Open URL")
+                .shortcutTip("openURL")
             Button { model.openSubtitleFile() } label: { Image(systemName: "captions.bubble") }
-                .help("Add subtitle")
+                .shortcutTip("cycleSubtitles", title: "Add subtitle")
                 .disabled(model.playlist.current == nil)
             Button { model.toggleStats() } label: { Image(systemName: "gauge.with.dots.needle.67percent") }
-                .help("Stats")
+                .shortcutTip("stats")
         }
         .buttonStyle(.borderless)
         .foregroundStyle(.white)

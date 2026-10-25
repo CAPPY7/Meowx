@@ -8,12 +8,25 @@ struct MediaTrack: Identifiable, Equatable {
     var title: String
     var language: String
     var codec: String
+    var channels: String
     var albumArt: Bool
+    var isDefault: Bool
+    var isExternal: Bool
+    var isForced: Bool
 
     var label: String {
-        if !title.isEmpty { return title }
-        if !language.isEmpty { return language.uppercased() }
-        return kind == "sub" ? "Subtitle \(id)" : "Audio \(id)"
+        TrackLabel.text(
+            kind: kind,
+            id: id,
+            language: language,
+            title: title,
+            codec: codec,
+            channels: channels,
+            isDefault: isDefault,
+            isExternal: isExternal,
+            isForced: isForced,
+            albumArt: albumArt
+        )
     }
 }
 
@@ -301,7 +314,11 @@ final class MPVController {
                 title: stringProp(prefix + "title") ?? "",
                 language: stringProp(prefix + "lang") ?? "",
                 codec: stringProp(prefix + "codec") ?? "",
-                albumArt: flagProp(prefix + "albumart")
+                channels: stringProp(prefix + "demux-channels") ?? "",
+                albumArt: flagProp(prefix + "albumart"),
+                isDefault: flagProp(prefix + "default"),
+                isExternal: flagProp(prefix + "external"),
+                isForced: flagProp(prefix + "forced")
             ))
         }
         return result
