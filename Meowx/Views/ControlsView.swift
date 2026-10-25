@@ -113,7 +113,7 @@ struct ControlsView: View {
             .shortcutTip("mute")
             Slider(value: Binding(get: { model.muted ? 0 : model.volume }, set: { model.setVolume($0) }), in: 0...200)
                 .frame(width: 90)
-                .shortcutTip("volumeSlider", title: "Volume (Up/Down)")
+                .shortcutTip("volumeSlider", title: "Volume (Up/Down, Shift ±10)")
         }
     }
 
@@ -186,11 +186,11 @@ struct ControlsView: View {
             Button("A") { model.setLoopA() }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(model.loopA == nil ? .primary : Color.accentColor)
-                .shortcutTip("loopStart")
+                .shortcutTip("loopCycle", title: "Set loop start")
             Button("B") { model.setLoopB() }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(model.loopB == nil ? .primary : Color.accentColor)
-                .shortcutTip("loopEnd")
+                .shortcutTip("loopCycle", title: "Set loop end")
             if model.loopA != nil || model.loopB != nil {
                 Button { model.clearLoop() } label: { Image(systemName: "xmark") }
                     .help("Clear A-B loop")

@@ -33,16 +33,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private static func handle(_ event: NSEvent) -> Bool {
-        if NSApp.modalWindow != nil { return false }
-        if isTyping { return false }
+        let routing = KeyRouting(
+            appModal: NSApp.modalWindow != nil,
+            sheetAttached: NSApp.windows.contains { $0.attachedSheet != nil } || NSApp.keyWindow?.isSheet == true,
+            firstResponderIsText: NSApp.windows.contains { isText($0.firstResponder) }
+        )
+        if routing.leaveEventForText {
+            if let token = ShortcutKey.token(for: Int(event.keyCode)) {
+                let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                let input = ShortcutInput(
+                    token: token,
+                    command: flags.contains(.command),
+                    shift: flags.contains(.shift),
+                    option: flags.contains(.option),
+                    control: flags.contains(.control)
+                )
+                if let shortcut = ShortcutCatalog.match(input), !shortcut.command {
+                    uiLog.debug("shortcut \(shortcut.id, privacy: .public) ignored, text input")
+                }
+            }
+            return false
+        }
         PlayerModel.shared.poke()
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if flags.contains(.option) || flags.contains(.control) { return false }
-        guard let token = Self.token(for: event.keyCode) else { return false }
+        guard let token = ShortcutKey.token(for: Int(event.keyCode)) else { return false }
         let input = ShortcutInput(
             token: token,
             command: flags.contains(.command),
-            shift: flags.contains(.shift)
+            shift: flags.contains(.shift),
+            option: flags.contains(.option),
+            control: flags.contains(.control)
         )
         guard let shortcut = ShortcutCatalog.match(input) else { return false }
         let model = PlayerModel.shared
@@ -52,35 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    private static func token(for keyCode: UInt16) -> String? {
-        switch keyCode {
-        case 49: return "space"
-        case 123: return "left"
-        case 124: return "right"
-        case 125: return "down"
-        case 126: return "up"
-        case 53: return "escape"
-        case 0: return "a"
-        case 1: return "s"
-        case 3: return "f"
-        case 17: return "t"
-        case 31: return "o"
-        case 32: return "u"
-        case 34: return "i"
-        case 35: return "p"
-        case 38: return "j"
-        case 30: return "bracketright"
-        case 33: return "bracketleft"
-        case 42: return "backslash"
-        case 43: return "comma"
-        case 46: return "m"
-        case 47: return "period"
-        default: return nil
-        }
-    }
-
-    private static var isTyping: Bool {
-        guard let responder = NSApp.keyWindow?.firstResponder else { return false }
-        return responder is NSTextView || responder is NSTextField
+    private static func isText(_ responder: NSResponder?) -> Bool {
+        responder is NSText || responder is NSTextField
     }
 }

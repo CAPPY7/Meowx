@@ -29,6 +29,8 @@ enum VideoContextMenu {
         seek.addItem(item("Back 30 Seconds", key: arrow(.left), modifiers: .shift, action: #selector(VideoMenuActions.back30)))
         seek.addItem(item("Forward 30 Seconds", key: arrow(.right), modifiers: .shift, action: #selector(VideoMenuActions.forward30)))
         seek.addItem(item("Go to Time…", key: "j", modifiers: .command, action: #selector(VideoMenuActions.goToTime)))
+        seek.addItem(item("Start", key: functionKey(0xF729), action: #selector(VideoMenuActions.goToStart)))
+        seek.addItem(item("End", key: functionKey(0xF72B), action: #selector(VideoMenuActions.goToEnd)))
         menu.addItem(submenu("Seek", seek))
 
         let speed = NSMenu()
@@ -51,13 +53,14 @@ enum VideoContextMenu {
         }
         audio.addItem(.separator())
         audio.addItem(disabled(String(format: "Audio delay: %+.1f s", model.audioDelay)))
-        audio.addItem(item("Delay Earlier", action: #selector(VideoMenuActions.audioEarlier)))
-        audio.addItem(item("Delay Later", action: #selector(VideoMenuActions.audioLater)))
+        audio.addItem(item("Delay Earlier", key: "z", modifiers: .option, action: #selector(VideoMenuActions.audioEarlier)))
+        audio.addItem(item("Delay Later", key: "x", modifiers: .option, action: #selector(VideoMenuActions.audioLater)))
         audio.addItem(item("Mute", key: "m", state: model.muted ? .on : .off, action: #selector(VideoMenuActions.toggleMute)))
         menu.addItem(submenu("Audio", audio))
 
         let subs = NSMenu()
         subs.addItem(item("Off", state: model.subtitleTrackID <= 0 ? .on : .off, action: #selector(VideoMenuActions.subtitlesOff)))
+        subs.addItem(item(model.subtitlesHidden ? "Show Subtitles" : "Hide Subtitles", key: "v", action: #selector(VideoMenuActions.toggleSubtitleVisibility)))
         if model.subtitleTracks.isEmpty {
             subs.addItem(disabled("None available"))
         } else {
@@ -69,12 +72,17 @@ enum VideoContextMenu {
         subs.addItem(item("Add Subtitle File…", action: #selector(VideoMenuActions.addSubtitle)))
         subs.addItem(item("Search Online…", action: #selector(VideoMenuActions.searchSubtitles)))
         subs.addItem(disabled(String(format: "Subtitle delay: %+.1f s", model.subDelay)))
-        subs.addItem(item("Delay Earlier", action: #selector(VideoMenuActions.subEarlier)))
-        subs.addItem(item("Delay Later", action: #selector(VideoMenuActions.subLater)))
+        subs.addItem(item("Delay Earlier", key: "z", action: #selector(VideoMenuActions.subEarlier)))
+        subs.addItem(item("Delay Later", key: "x", action: #selector(VideoMenuActions.subLater)))
         subs.addItem(disabled("Size \(Int(model.settings.subtitleSize.rounded()))"))
         subs.addItem(item("Size Smaller", action: #selector(VideoMenuActions.sizeSmaller)))
         subs.addItem(item("Size Larger", action: #selector(VideoMenuActions.sizeLarger)))
         menu.addItem(submenu("Subtitles", subs))
+
+        let video = NSMenu()
+        video.addItem(item("Rotate 90°", key: "r", action: #selector(VideoMenuActions.rotate)))
+        video.addItem(item("Cycle Aspect Ratio", key: "e", action: #selector(VideoMenuActions.cycleAspect)))
+        menu.addItem(submenu("Video", video))
 
         menu.addItem(item("Full Screen", key: "f", state: model.fullscreen ? .on : .off, action: #selector(VideoMenuActions.fullScreen)))
         menu.addItem(item("Picture in Picture", key: "p", state: model.pictureInPicture ? .on : .off, action: #selector(VideoMenuActions.pictureInPicture)))
@@ -144,6 +152,11 @@ enum VideoContextMenu {
         guard let scalar = UnicodeScalar(value) else { return "" }
         return String(scalar)
     }
+
+    private static func functionKey(_ value: UInt32) -> String {
+        guard let scalar = UnicodeScalar(value) else { return "" }
+        return String(scalar)
+    }
 }
 
 final class VideoMenuActions: NSObject {
@@ -157,6 +170,8 @@ final class VideoMenuActions: NSObject {
     @objc func back30() { PlayerModel.shared.seek(by: -30) }
     @objc func forward30() { PlayerModel.shared.seek(by: 30) }
     @objc func goToTime() { PlayerModel.shared.timePrompt = true; PlayerModel.shared.poke() }
+    @objc func goToStart() { PlayerModel.shared.seekToStart() }
+    @objc func goToEnd() { PlayerModel.shared.seekToEnd() }
     @objc func resetSpeed() { PlayerModel.shared.resetSpeed() }
     @objc func pickSpeed(_ sender: NSMenuItem) {
         guard let speed = (sender.representedObject as? NSNumber)?.doubleValue else { return }
@@ -171,6 +186,7 @@ final class VideoMenuActions: NSObject {
         PlayerModel.shared.selectSubtitle(id)
     }
     @objc func subtitlesOff() { PlayerModel.shared.selectSubtitle(0) }
+    @objc func toggleSubtitleVisibility() { PlayerModel.shared.toggleSubtitleVisibility() }
     @objc func audioEarlier() { PlayerModel.shared.nudgeAudioDelay(-0.1) }
     @objc func audioLater() { PlayerModel.shared.nudgeAudioDelay(0.1) }
     @objc func subEarlier() { PlayerModel.shared.nudgeSubDelay(-0.1) }
@@ -178,6 +194,8 @@ final class VideoMenuActions: NSObject {
     @objc func sizeSmaller() { PlayerModel.shared.nudgeSubtitleSize(-4) }
     @objc func sizeLarger() { PlayerModel.shared.nudgeSubtitleSize(4) }
     @objc func toggleMute() { PlayerModel.shared.toggleMute() }
+    @objc func rotate() { PlayerModel.shared.rotateClockwise() }
+    @objc func cycleAspect() { PlayerModel.shared.cycleAspect() }
     @objc func addSubtitle() { PlayerModel.shared.openSubtitleFile() }
     @objc func searchSubtitles() { PlayerModel.shared.searchOpen = true; PlayerModel.shared.poke() }
     @objc func fullScreen() { PlayerModel.shared.toggleFullscreen(); PlayerModel.shared.poke() }

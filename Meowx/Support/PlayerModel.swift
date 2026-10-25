@@ -69,6 +69,10 @@ final class PlayerModel {
     var audioDelay = 0.0
     var loopA: Double?
     var loopB: Double?
+    var rotation = 0
+    var aspectOverride = ""
+    var subtitlesHidden = false
+    var fileLoop = false
     var hwdec = ""
     var videoWidth = 0
     var videoHeight = 0
@@ -449,6 +453,52 @@ final class PlayerModel {
         }
     }
 
+    func previousSubtitle() {
+        guard passGate() else { return }
+        pendingTrackAnnouncement = "sub"
+        engine?.cycle("sub", backward: true)
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshTracks()
+            self?.announceTracksIfNeeded()
+        }
+    }
+
+    func previousAudio() {
+        guard passGate() else { return }
+        pendingTrackAnnouncement = "audio"
+        engine?.cycle("audio", backward: true)
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshTracks()
+            self?.announceTracksIfNeeded()
+        }
+    }
+
+    func seekToStart() {
+        guard allow("seek") else { return }
+        seek(to: 0, exact: true)
+        flashStatus("Start")
+    }
+
+    func seekToEnd() {
+        guard allow("seek") else { return }
+        guard duration > 0 else {
+            flashStatus("No duration yet")
+            return
+        }
+        seek(to: max(0, duration - 0.05), exact: true)
+        flashStatus("End")
+    }
+
+    func jumpToPercent(_ digit: Int) {
+        guard allow("seek") else { return }
+        guard let seconds = PlaybackJump.seconds(digit: digit, duration: duration) else {
+            flashStatus("No duration yet")
+            return
+        }
+        seek(to: seconds, exact: true)
+        flashStatus("\(digit * 10)%")
+    }
+
     func selectSubtitle(_ id: Int) {
         subtitleTrackID = id
         engine?.selectTrack("sid", id: id)
@@ -539,25 +589,46 @@ final class PlayerModel {
         case "seekForward30": seek(by: 30)
         case "volumeUp": nudgeVolume(5)
         case "volumeDown": nudgeVolume(-5)
+        case "volumeUp10": nudgeVolume(10)
+        case "volumeDown10": nudgeVolume(-10)
         case "mute": toggleMute()
         case "cycleAudio": cycleAudio()
+        case "previousAudio": previousAudio()
+        case "audioDelayEarlier": nudgeAudioDelay(-0.1)
+        case "audioDelayLater": nudgeAudioDelay(0.1)
         case "cycleSubtitles": cycleSubtitles()
+        case "previousSubtitle": previousSubtitle()
+        case "toggleSubtitleVisibility": toggleSubtitleVisibility()
+        case "subDelayEarlier": nudgeSubDelay(-0.1)
+        case "subDelayLater": nudgeSubDelay(0.1)
         case "speedDown": nudgeSpeed(-1)
         case "speedUp": nudgeSpeed(1)
         case "speedReset": resetSpeed()
         case "frameBack": frameStep(backward: true)
         case "frameForward": frameStep(backward: false)
         case "jump": timePrompt = true
+        case "loopCycle": cycleLoopPoint()
+        case "loopFile": toggleFileLoop()
         case "screenshot": screenshot()
-        case "fullScreen", "leaveFullScreen": toggleFullscreen()
+        case "rotate": rotateClockwise()
+        case "cycleAspect": cycleAspect()
+        case "fullScreen", "fullScreenSystem", "leaveFullScreen": toggleFullscreen()
         case "pictureInPicture": togglePictureInPicture()
         case "alwaysOnTop": toggleAlwaysOnTop()
+        case "windowHalf": resizeWindow(scale: 0.5)
+        case "windowActual": resizeWindow(scale: 1)
+        case "windowDouble": resizeWindow(scale: 2)
+        case "windowFit": fitWindowToScreen()
         case "stats": toggleStats()
         case "open": openFiles(playNow: true)
         case "openURL": urlPrompt = true
         case "addToPlaylist": openFiles(playNow: false)
+        case "seekStart": seekToStart()
+        case "seekEnd": seekToEnd()
         default:
-            break
+            if id.hasPrefix("jump"), let digit = Int(id.dropFirst(4)), (0...9).contains(digit) {
+                jumpToPercent(digit)
+            }
         }
         poke()
     }
@@ -580,6 +651,108 @@ final class PlayerModel {
         engine?.setString("ab-loop-a", "no")
         engine?.setString("ab-loop-b", "no")
         flashStatus("A-B loop cleared")
+    }
+
+    func cycleLoopPoint() {
+        switch LoopCycle.next(hasA: loopA != nil, hasB: loopB != nil) {
+        case .setA: setLoopA()
+        case .setB: setLoopB()
+        case .clear: clearLoop()
+        }
+    }
+
+    func toggleFileLoop() {
+        fileLoop.toggle()
+        applyVideoAdjustments()
+        flashStatus(fileLoop ? "Loop file on" : "Loop file off")
+    }
+
+    func toggleSubtitleVisibility() {
+        subtitlesHidden.toggle()
+        applyVideoAdjustments()
+        flashStatus(subtitlesHidden ? "Subtitles hidden" : "Subtitles shown")
+    }
+
+    func rotateClockwise() {
+        guard allow("video") else { return }
+        rotation = RotationCycle.next(degrees: rotation)
+        applyVideoAdjustments()
+        flashStatus("Rotate \(rotation)°")
+    }
+
+    func cycleAspect() {
+        guard allow("video") else { return }
+        aspectOverride = AspectCycle.next(current: aspectOverride)
+        applyVideoAdjustments()
+        flashStatus(AspectCycle.label(aspectOverride))
+    }
+
+    func resizeWindow(scale: Double) {
+        let percent = Int((scale * 100).rounded())
+        applyFrame(WindowFit.scaled(
+            videoWidth: videoWidth,
+            videoHeight: videoHeight,
+            scale: scale,
+            maxWidth: screenLimit().width,
+            maxHeight: screenLimit().height
+        ), label: "Window \(percent)%")
+    }
+
+    func fitWindowToScreen() {
+        let limit = screenLimit()
+        applyFrame(WindowFit.fitted(
+            videoWidth: videoWidth,
+            videoHeight: videoHeight,
+            maxWidth: limit.width,
+            maxHeight: limit.height
+        ), label: "Fit to screen")
+    }
+
+    private func applyFrame(_ size: FrameSize?, label: String) {
+        guard let size else {
+            flashStatus("No video size yet")
+            return
+        }
+        guard let window = playbackWindow else {
+            flashStatus("No window")
+            return
+        }
+        if window.styleMask.contains(.fullScreen) {
+            flashStatus("Leave full screen first")
+            return
+        }
+        let width = max(160, size.width)
+        let height = max(90, size.height)
+        let content = NSRect(x: 0, y: 0, width: width, height: height)
+        var frame = window.frameRect(forContentRect: content)
+        let current = window.frame
+        frame.origin.x = current.midX - frame.width / 2
+        frame.origin.y = current.midY - frame.height / 2
+        if let screen = window.screen?.visibleFrame {
+            if frame.maxX > screen.maxX { frame.origin.x = screen.maxX - frame.width }
+            if frame.minX < screen.minX { frame.origin.x = screen.minX }
+            if frame.maxY > screen.maxY { frame.origin.y = screen.maxY - frame.height }
+            if frame.minY < screen.minY { frame.origin.y = screen.minY }
+        }
+        window.setFrame(frame, display: true, animate: true)
+        flashStatus(label)
+    }
+
+    private func screenLimit() -> (width: Double, height: Double) {
+        let frame = playbackWindow?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        return (max(320, Double(frame.width) - 32), max(180, Double(frame.height) - 48))
+    }
+
+    private var playbackWindow: NSWindow? {
+        if let main = NSApp.mainWindow, main.canBecomeMain { return main }
+        return NSApp.windows.first { $0.canBecomeMain && !$0.isSheet }
+    }
+
+    private func applyVideoAdjustments() {
+        engine?.setString("video-rotate", String(rotation))
+        engine?.setString("video-aspect-override", AspectCycle.mpvValue(aspectOverride))
+        engine?.setString("sub-visibility", subtitlesHidden ? "no" : "yes")
+        engine?.setString("loop-file", fileLoop ? "inf" : "no")
     }
 
     func toggleStats() {
@@ -942,6 +1115,7 @@ extension PlayerModel: EngineDelegate {
         refreshTracks()
         refreshMetadata()
         engine?.apply(settings)
+        applyVideoAdjustments()
         if resumeOnLoad, let current = playlist.current {
             let key = ResumeStore.key(for: current.url)
             if let saved = resume.position(for: key), saved > 3 {

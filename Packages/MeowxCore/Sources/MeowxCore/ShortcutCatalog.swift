@@ -86,6 +86,8 @@ public struct ShortcutCommand: Equatable, Sendable, Identifiable {
         case "up": return "Up"
         case "down": return "Down"
         case "escape": return "Esc"
+        case "home": return "Home"
+        case "end": return "End"
         case "bracketleft": return "["
         case "bracketright": return "]"
         case "backslash": return "\\"
@@ -105,22 +107,52 @@ public enum ShortcutCatalog {
         ShortcutCommand(id: "seekForward", title: "Seek forward 5 seconds", group: "Playback", token: "right"),
         ShortcutCommand(id: "seekBack30", title: "Seek back 30 seconds", group: "Playback", token: "left", shift: true),
         ShortcutCommand(id: "seekForward30", title: "Seek forward 30 seconds", group: "Playback", token: "right", shift: true),
+        ShortcutCommand(id: "jump0", title: "Jump to 0%", group: "Playback", token: "0"),
+        ShortcutCommand(id: "jump1", title: "Jump to 10%", group: "Playback", token: "1"),
+        ShortcutCommand(id: "jump2", title: "Jump to 20%", group: "Playback", token: "2"),
+        ShortcutCommand(id: "jump3", title: "Jump to 30%", group: "Playback", token: "3"),
+        ShortcutCommand(id: "jump4", title: "Jump to 40%", group: "Playback", token: "4"),
+        ShortcutCommand(id: "jump5", title: "Jump to 50%", group: "Playback", token: "5"),
+        ShortcutCommand(id: "jump6", title: "Jump to 60%", group: "Playback", token: "6"),
+        ShortcutCommand(id: "jump7", title: "Jump to 70%", group: "Playback", token: "7"),
+        ShortcutCommand(id: "jump8", title: "Jump to 80%", group: "Playback", token: "8"),
+        ShortcutCommand(id: "jump9", title: "Jump to 90%", group: "Playback", token: "9"),
+        ShortcutCommand(id: "seekStart", title: "Go to start", group: "Playback", token: "home"),
+        ShortcutCommand(id: "seekEnd", title: "Go to end", group: "Playback", token: "end"),
         ShortcutCommand(id: "volumeUp", title: "Volume up", group: "Audio", token: "up"),
         ShortcutCommand(id: "volumeDown", title: "Volume down", group: "Audio", token: "down"),
+        ShortcutCommand(id: "volumeUp10", title: "Volume up 10", group: "Audio", token: "up", shift: true),
+        ShortcutCommand(id: "volumeDown10", title: "Volume down 10", group: "Audio", token: "down", shift: true),
         ShortcutCommand(id: "mute", title: "Mute", group: "Audio", token: "m"),
         ShortcutCommand(id: "cycleAudio", title: "Audio tracks", group: "Audio", token: "a"),
+        ShortcutCommand(id: "previousAudio", title: "Previous audio track", group: "Audio", token: "a", shift: true),
+        ShortcutCommand(id: "audioDelayEarlier", title: "Audio delay earlier", group: "Audio", token: "z", option: true),
+        ShortcutCommand(id: "audioDelayLater", title: "Audio delay later", group: "Audio", token: "x", option: true),
         ShortcutCommand(id: "cycleSubtitles", title: "Subtitles", group: "Subtitles", token: "s"),
+        ShortcutCommand(id: "previousSubtitle", title: "Previous subtitle", group: "Subtitles", token: "s", shift: true),
+        ShortcutCommand(id: "toggleSubtitleVisibility", title: "Show or hide subtitles", group: "Subtitles", token: "v"),
+        ShortcutCommand(id: "subDelayEarlier", title: "Subtitle delay earlier", group: "Subtitles", token: "z"),
+        ShortcutCommand(id: "subDelayLater", title: "Subtitle delay later", group: "Subtitles", token: "x"),
         ShortcutCommand(id: "speedDown", title: "Speed down", group: "Playback", token: "bracketleft"),
         ShortcutCommand(id: "speedUp", title: "Speed up", group: "Playback", token: "bracketright"),
         ShortcutCommand(id: "speedReset", title: "Reset speed", group: "Playback", token: "backslash"),
         ShortcutCommand(id: "frameBack", title: "Previous frame", group: "Playback", token: "comma"),
         ShortcutCommand(id: "frameForward", title: "Next frame", group: "Playback", token: "period"),
         ShortcutCommand(id: "jump", title: "Go to time", group: "Playback", token: "j", command: true),
+        ShortcutCommand(id: "loopCycle", title: "Loop A, then B, then clear", group: "Playback", token: "l"),
+        ShortcutCommand(id: "loopFile", title: "Loop current file", group: "Playback", token: "l", shift: true),
         ShortcutCommand(id: "screenshot", title: "Screenshot", group: "Playback", token: "s", command: true, shift: true),
+        ShortcutCommand(id: "rotate", title: "Rotate 90 degrees", group: "Video", token: "r"),
+        ShortcutCommand(id: "cycleAspect", title: "Cycle aspect ratio", group: "Video", token: "e"),
         ShortcutCommand(id: "fullScreen", title: "Full screen", group: "Window", token: "f"),
+        ShortcutCommand(id: "fullScreenSystem", title: "Full screen", group: "Window", token: "f", command: true, control: true),
         ShortcutCommand(id: "leaveFullScreen", title: "Leave full screen", group: "Window", token: "escape"),
         ShortcutCommand(id: "pictureInPicture", title: "Picture in Picture", group: "Window", token: "p"),
         ShortcutCommand(id: "alwaysOnTop", title: "Always on top", group: "Window", token: "t", command: true),
+        ShortcutCommand(id: "windowHalf", title: "Window 50%", group: "Window", token: "1", command: true),
+        ShortcutCommand(id: "windowActual", title: "Window 100%", group: "Window", token: "2", command: true),
+        ShortcutCommand(id: "windowDouble", title: "Window 200%", group: "Window", token: "3", command: true),
+        ShortcutCommand(id: "windowFit", title: "Fit window to screen", group: "Window", token: "0", command: true),
         ShortcutCommand(id: "stats", title: "Stats", group: "Window", token: "i"),
         ShortcutCommand(id: "open", title: "Open", group: "File", token: "o", command: true),
         ShortcutCommand(id: "openURL", title: "Open URL", group: "File", token: "u", command: true),
@@ -143,8 +175,7 @@ public enum ShortcutCatalog {
     }
 
     public static func match(_ input: ShortcutInput) -> ShortcutCommand? {
-        if input.option || input.control { return nil }
-        return all.first { $0.matches(input) }
+        all.first { $0.matches(input) }
     }
 
     public static var markdownTable: String {

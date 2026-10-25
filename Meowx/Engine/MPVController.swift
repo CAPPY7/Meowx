@@ -240,8 +240,12 @@ final class MPVController {
         setString("mute", muted ? "yes" : "no")
     }
 
-    func cycle(_ name: String) {
-        command(["cycle", name])
+    func cycle(_ name: String, backward: Bool = false) {
+        if backward {
+            command(["cycle", name, "down"])
+        } else {
+            command(["cycle", name])
+        }
     }
 
     func selectTrack(_ property: String, id: Int) {

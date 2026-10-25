@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.6
+
+- One key handler. Bare keys are no longer menu equivalents, so typing in Open URL, subtitle search, or Settings cannot play, mute, or switch tracks. Command shortcuts still show on the menu.
+- Added 0–9 percent jumps, Home/End, subtitle and audio delay, previous track, hide subtitles, A-B loop on L, file loop on Shift+L, rotate, aspect, window size, and Ctrl+Cmd+F.
+- Chapter keys are not in this build. They wait until chapters exist.
+
 ## 1.0.5
 
 - One shortcut list drives the keys, the Help sheet, the tooltips, and the README table.

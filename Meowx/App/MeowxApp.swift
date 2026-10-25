@@ -1,3 +1,4 @@
+import MeowxCore
 import SwiftUI
 
 @main
@@ -37,57 +38,63 @@ struct MeowxCommands: Commands {
                 .disabled(PlayerModel.shared.playlist.items.isEmpty)
         }
         CommandMenu("Playback") {
-            Button("Play/Pause") { PlayerModel.shared.togglePause() }
-                .keyboardShortcut(.space, modifiers: [])
+            Button(menuTitle("Play/Pause", "playPause")) { PlayerModel.shared.togglePause() }
             Button("Next") { PlayerModel.shared.next() }
                 .keyboardShortcut(.rightArrow, modifiers: .command)
             Button("Previous") { PlayerModel.shared.previous() }
                 .keyboardShortcut(.leftArrow, modifiers: .command)
             Divider()
-            Button("Seek Forward 5 Seconds") { PlayerModel.shared.seek(by: 5) }
-                .keyboardShortcut(.rightArrow, modifiers: [])
-            Button("Seek Backward 5 Seconds") { PlayerModel.shared.seek(by: -5) }
-                .keyboardShortcut(.leftArrow, modifiers: [])
-            Button("Seek Forward 30 Seconds") { PlayerModel.shared.seek(by: 30) }
-                .keyboardShortcut(.rightArrow, modifiers: .shift)
-            Button("Seek Backward 30 Seconds") { PlayerModel.shared.seek(by: -30) }
-                .keyboardShortcut(.leftArrow, modifiers: .shift)
+            Button(menuTitle("Seek Forward 5 Seconds", "seekForward")) { PlayerModel.shared.seek(by: 5) }
+            Button(menuTitle("Seek Backward 5 Seconds", "seekBack")) { PlayerModel.shared.seek(by: -5) }
+            Button(menuTitle("Seek Forward 30 Seconds", "seekForward30")) { PlayerModel.shared.seek(by: 30) }
+            Button(menuTitle("Seek Backward 30 Seconds", "seekBack30")) { PlayerModel.shared.seek(by: -30) }
+            Button(menuTitle("Go to Start", "seekStart")) { PlayerModel.shared.seekToStart() }
+            Button(menuTitle("Go to End", "seekEnd")) { PlayerModel.shared.seekToEnd() }
             Button("Go to Time…") { PlayerModel.shared.timePrompt = true }
                 .keyboardShortcut("j")
-            Button("Next Frame") { PlayerModel.shared.frameStep(backward: false) }
-                .keyboardShortcut(".", modifiers: [])
-            Button("Previous Frame") { PlayerModel.shared.frameStep(backward: true) }
-                .keyboardShortcut(",", modifiers: [])
+            Button(menuTitle("Next Frame", "frameForward")) { PlayerModel.shared.frameStep(backward: false) }
+            Button(menuTitle("Previous Frame", "frameBack")) { PlayerModel.shared.frameStep(backward: true) }
             Divider()
-            Button("Speed Up") { PlayerModel.shared.nudgeSpeed(1) }
-                .keyboardShortcut("]", modifiers: [])
-            Button("Speed Down") { PlayerModel.shared.nudgeSpeed(-1) }
-                .keyboardShortcut("[", modifiers: [])
-            Button("Reset Speed") { PlayerModel.shared.resetSpeed() }
-                .keyboardShortcut("\\", modifiers: [])
+            Button(menuTitle("Speed Up", "speedUp")) { PlayerModel.shared.nudgeSpeed(1) }
+            Button(menuTitle("Speed Down", "speedDown")) { PlayerModel.shared.nudgeSpeed(-1) }
+            Button(menuTitle("Reset Speed", "speedReset")) { PlayerModel.shared.resetSpeed() }
             Divider()
-            Button("Cycle Subtitles") { PlayerModel.shared.cycleSubtitles() }
-                .keyboardShortcut("s", modifiers: [])
-            Button("Cycle Audio") { PlayerModel.shared.cycleAudio() }
-                .keyboardShortcut("a", modifiers: [])
-            Button("Volume Up") { PlayerModel.shared.nudgeVolume(5) }
-                .keyboardShortcut(.upArrow, modifiers: [])
-            Button("Volume Down") { PlayerModel.shared.nudgeVolume(-5) }
-                .keyboardShortcut(.downArrow, modifiers: [])
-            Button("Mute") { PlayerModel.shared.toggleMute() }
-                .keyboardShortcut("m", modifiers: [])
+            Button(menuTitle("Cycle Subtitles", "cycleSubtitles")) { PlayerModel.shared.cycleSubtitles() }
+            Button(menuTitle("Previous Subtitle", "previousSubtitle")) { PlayerModel.shared.previousSubtitle() }
+            Button(menuTitle("Show or Hide Subtitles", "toggleSubtitleVisibility")) { PlayerModel.shared.toggleSubtitleVisibility() }
+            Button(menuTitle("Subtitle Earlier", "subDelayEarlier")) { PlayerModel.shared.nudgeSubDelay(-0.1) }
+            Button(menuTitle("Subtitle Later", "subDelayLater")) { PlayerModel.shared.nudgeSubDelay(0.1) }
+            Button(menuTitle("Cycle Audio", "cycleAudio")) { PlayerModel.shared.cycleAudio() }
+            Button(menuTitle("Previous Audio", "previousAudio")) { PlayerModel.shared.previousAudio() }
+            Button(menuTitle("Audio Earlier", "audioDelayEarlier")) { PlayerModel.shared.nudgeAudioDelay(-0.1) }
+            Button(menuTitle("Audio Later", "audioDelayLater")) { PlayerModel.shared.nudgeAudioDelay(0.1) }
+            Button(menuTitle("Volume Up", "volumeUp")) { PlayerModel.shared.nudgeVolume(5) }
+            Button(menuTitle("Volume Up 10", "volumeUp10")) { PlayerModel.shared.nudgeVolume(10) }
+            Button(menuTitle("Volume Down", "volumeDown")) { PlayerModel.shared.nudgeVolume(-5) }
+            Button(menuTitle("Volume Down 10", "volumeDown10")) { PlayerModel.shared.nudgeVolume(-10) }
+            Button(menuTitle("Mute", "mute")) { PlayerModel.shared.toggleMute() }
             Button("Screenshot") { PlayerModel.shared.screenshot() }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
+            Divider()
+            Button(menuTitle("Set Loop A, then B, then Clear", "loopCycle")) { PlayerModel.shared.cycleLoopPoint() }
+            Button(menuTitle("Loop Current File", "loopFile")) { PlayerModel.shared.toggleFileLoop() }
         }
         CommandMenu("Video") {
-            Button("Full Screen") { PlayerModel.shared.toggleFullscreen() }
-                .keyboardShortcut("f", modifiers: [])
-            Button("Picture in Picture") { PlayerModel.shared.togglePictureInPicture() }
-                .keyboardShortcut("p", modifiers: [])
+            Button(menuTitle("Full Screen", "fullScreen")) { PlayerModel.shared.toggleFullscreen() }
+            Button(menuTitle("Rotate 90°", "rotate")) { PlayerModel.shared.rotateClockwise() }
+            Button(menuTitle("Cycle Aspect Ratio", "cycleAspect")) { PlayerModel.shared.cycleAspect() }
+            Button("Half Size") { PlayerModel.shared.resizeWindow(scale: 0.5) }
+                .keyboardShortcut("1")
+            Button("Actual Size") { PlayerModel.shared.resizeWindow(scale: 1) }
+                .keyboardShortcut("2")
+            Button("Double Size") { PlayerModel.shared.resizeWindow(scale: 2) }
+                .keyboardShortcut("3")
+            Button("Fit to Screen") { PlayerModel.shared.fitWindowToScreen() }
+                .keyboardShortcut("0")
+            Button(menuTitle("Picture in Picture", "pictureInPicture")) { PlayerModel.shared.togglePictureInPicture() }
             Button("Always on Top") { PlayerModel.shared.toggleAlwaysOnTop() }
                 .keyboardShortcut("t", modifiers: .command)
-            Button("Stats") { PlayerModel.shared.toggleStats() }
-                .keyboardShortcut("i", modifiers: [])
+            Button(menuTitle("Stats", "stats")) { PlayerModel.shared.toggleStats() }
             Button("Show in Finder") { PlayerModel.shared.revealCurrent() }
                 .disabled(PlayerModel.shared.playlist.current?.url.isFileURL != true)
             Button("Set as Default Player") { PlayerModel.shared.makeDefaultPlayer() }
@@ -95,5 +102,11 @@ struct MeowxCommands: Commands {
         CommandGroup(after: .help) {
             Button("Keyboard Shortcuts") { PlayerModel.shared.shortcutPrompt = true }
         }
+    }
+
+    /// Bare keys stay off the menu so they cannot steal typing. Command shortcuts stay, because the menu column can show them safely.
+    private func menuTitle(_ title: String, _ id: String) -> String {
+        guard let shortcut = ShortcutCatalog.command(id), !shortcut.command, !shortcut.display.isEmpty else { return title }
+        return "\(title) (\(shortcut.display))"
     }
 }

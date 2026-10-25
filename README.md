@@ -76,7 +76,7 @@ Choose **Video > Set as Default Player**. macOS has to accept the change. If it 
 
 ## Keyboard shortcuts
 
-These rows are the same list the app uses for keys, tooltips, and Help > Keyboard Shortcuts.
+These rows are the same list the app uses for keys, tooltips, and Help > Keyboard Shortcuts. Bare keys are handled by the player only when you are not typing in a text field or a sheet. Command shortcuts stay on the menu.
 
 | Key | Action |
 | --- | --- |
@@ -87,22 +87,52 @@ These rows are the same list the app uses for keys, tooltips, and Help > Keyboar
 | Right | Seek forward 5 seconds |
 | Shift+Left | Seek back 30 seconds |
 | Shift+Right | Seek forward 30 seconds |
+| 0 | Jump to 0% |
+| 1 | Jump to 10% |
+| 2 | Jump to 20% |
+| 3 | Jump to 30% |
+| 4 | Jump to 40% |
+| 5 | Jump to 50% |
+| 6 | Jump to 60% |
+| 7 | Jump to 70% |
+| 8 | Jump to 80% |
+| 9 | Jump to 90% |
+| Home | Go to start |
+| End | Go to end |
 | Up | Volume up |
 | Down | Volume down |
+| Shift+Up | Volume up 10 |
+| Shift+Down | Volume down 10 |
 | M | Mute |
 | A | Audio tracks |
+| Shift+A | Previous audio track |
+| Opt+Z | Audio delay earlier |
+| Opt+X | Audio delay later |
 | S | Subtitles |
+| Shift+S | Previous subtitle |
+| V | Show or hide subtitles |
+| Z | Subtitle delay earlier |
+| X | Subtitle delay later |
 | [ | Speed down |
 | ] | Speed up |
 | \ | Reset speed |
 | , | Previous frame |
 | . | Next frame |
 | Cmd+J | Go to time |
+| L | Loop A, then B, then clear |
+| Shift+L | Loop current file |
 | Shift+Cmd+S | Screenshot |
+| R | Rotate 90 degrees |
+| E | Cycle aspect ratio |
 | F | Full screen |
+| Ctrl+Cmd+F | Full screen |
 | Esc | Leave full screen |
 | P | Picture in Picture |
 | Cmd+T | Always on top |
+| Cmd+1 | Window 50% |
+| Cmd+2 | Window 100% |
+| Cmd+3 | Window 200% |
+| Cmd+0 | Fit window to screen |
 | I | Stats |
 | Cmd+O | Open |
 | Cmd+U | Open URL |
