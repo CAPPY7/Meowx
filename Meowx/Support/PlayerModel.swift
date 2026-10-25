@@ -2,6 +2,7 @@ import AppKit
 import AVFoundation
 import MeowxCore
 import Observation
+import os
 import UniformTypeIdentifiers
 
 @Observable
