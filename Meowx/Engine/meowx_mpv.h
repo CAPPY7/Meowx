@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <mpv/client.h>
 #include <mpv/render.h>
+#include <mpv/render_gl.h>
 
 // Commands are joined with ASCII unit separator 0x1F, in order.
 int meowx_command_sep(mpv_handle *ctx, const char *joined);
