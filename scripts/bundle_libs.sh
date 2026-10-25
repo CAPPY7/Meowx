@@ -86,15 +86,9 @@ for tool in ffmpeg ffprobe; do
 done
 
 HOOK_DEST="$APP/Contents/Resources/mpv/scripts/ytdl_hook.lua"
-if [[ ! -f "$HOOK_DEST" ]]; then
-  mkdir -p "$(dirname "$HOOK_DEST")"
-  HOOK="$(find "$(brew --prefix mpv)" "$(brew --prefix)/Cellar/mpv" "$(brew --prefix)/lib" -name ytdl_hook.lua -print -quit 2>/dev/null || true)"
-  if [[ -z "$HOOK" ]]; then
-    echo "error: ytdl_hook.lua was not copied into the app" >&2
-    exit 1
-  fi
-  cp "$HOOK" "$HOOK_DEST"
-fi
+mkdir -p "$(dirname "$HOOK_DEST")"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cp "$ROOT/Meowx/Resources/mpv/scripts/ytdl_hook.lua" "$HOOK_DEST"
 
 if [[ -d "$FRAMEWORKS" ]]; then
   while IFS= read -r -d '' lib; do
