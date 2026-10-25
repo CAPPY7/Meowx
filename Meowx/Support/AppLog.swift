@@ -1,4 +1,5 @@
 import Foundation
+import MeowxCore
 
 final class AppLog {
     static let shared = AppLog()
