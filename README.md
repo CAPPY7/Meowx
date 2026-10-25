@@ -42,7 +42,7 @@ Streaming smoothness depends on your connection. Local files should play without
 
 1. Download `Meowx-<version>.dmg` from [GitHub Releases](https://github.com/Cappy7/Meowx/releases).
 2. Open it and drag Meowx into Applications.
-3. The first launch is blocked because the app is not notarized. Open it once, then go to **System Settings > Privacy & Security**, scroll down, and click **Open Anyway** next to Meowx.
+3. The first launch is blocked because the app is not notarized. Open it once, then go to **System Settings > Privacy & Security**, scroll down, and click **Open Anyway** next to Meowx. Right-click > Open does not clear this warning on current macOS.
 4. Or run this once in Terminal:
 
 ```bash
@@ -69,7 +69,10 @@ The script checks that the Mac is Apple Silicon and that macOS is 26 or newer, t
 
 ## Make Meowx the default player
 
-Meowx registers as a viewer for video and audio types. It does not take ownership of Apple's system types. To make it the default, select a file in Finder, choose **Get Info**, set **Open with** to Meowx, and click **Change All**.
+Meowx registers as a viewer for video and audio types. It does not take ownership of Apple's system types by itself.
+
+Choose **Video > Set as Default Player**. macOS has to accept the change. If it refuses, Meowx shows the error instead of claiming success. You can also select a file in Finder, choose **Get Info**, set **Open with** to Meowx, and click **Change All**.
+
 
 ## Keyboard shortcuts
 

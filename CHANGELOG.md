@@ -1,6 +1,17 @@
 # Changelog
 
+## 1.0.1
+
+- The app target imports MeowxCore, so Release builds can see PlayerSettings.
+- Playlist unit test no longer assigns through a shadowed constant.
+- Resume store tests cover a missing file and a corrupt file.
+- `--self-test` initializes libmpv, prints its version, and exits without a window.
+- Screenshots report failure instead of always saying they were saved.
+- HTTP media is allowed in the app transport settings.
+- Release workflow verifies bundled libraries, retries the disk image, and publishes both a versioned DMG and Meowx.dmg.
+- The installer checks the SHA256 before copying the app.
+
 ## 1.0.0
 
-- First release of Meowx for Apple Silicon on macOS 26.
+- First source release of Meowx for Apple Silicon on macOS 26.
 - libmpv playback with VideoToolbox, playlists, subtitles, resume, streaming, stats, and a portable DMG build.

@@ -2,6 +2,7 @@ import AppKit
 import AVFoundation
 import MeowxCore
 import Observation
+import UniformTypeIdentifiers
 
 @Observable
 final class PlayerModel {
@@ -259,6 +260,24 @@ final class PlayerModel {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
+    func makeDefaultPlayer() {
+        let application = Bundle.main.bundleURL
+        let types: [UTType] = [.movie, .video, .audio, .mpeg4Movie, .quickTimeMovie]
+        var failures: [String] = []
+        for type in types {
+            do {
+                try NSWorkspace.shared.setDefaultApplication(at: application, toOpen: type)
+            } catch {
+                failures.append("\(type.identifier): \(error.localizedDescription)")
+            }
+        }
+        if failures.isEmpty {
+            showStatus("Meowx is the default player for video and audio")
+        } else {
+            errorMessage = "macOS did not accept Meowx as the default player. \(failures.joined(separator: " "))"
+        }
+    }
+
     func togglePause() {
         guard passGate() else { return }
         if playlist.current == nil {
@@ -463,8 +482,12 @@ final class PlayerModel {
         let folder = settings.resolvedScreenshotFolder
         let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let url = folder.appendingPathComponent("Meowx-\(stamp).\(settings.screenshotFormat.rawValue)")
-        engine?.screenshot(to: url, format: settings.screenshotFormat.rawValue)
-        showStatus("Saved screenshot")
+        let saved = engine?.screenshot(to: url, format: settings.screenshotFormat.rawValue) == true
+        if saved {
+            showStatus("Saved screenshot")
+        } else {
+            errorMessage = "Couldn't save the screenshot."
+        }
     }
 
     func updateSettings(_ body: (inout PlayerSettings) -> Void) {

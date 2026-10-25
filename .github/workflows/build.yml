@@ -26,3 +26,8 @@ jobs:
           CODE_SIGN_IDENTITY=-
           CODE_SIGNING_REQUIRED=YES
           build
+      - name: Self-test
+        run: |
+          APP="$(find build/DerivedData -name Meowx.app -type d | head -1)"
+          test -n "$APP"
+          "$APP/Contents/MacOS/Meowx" --self-test

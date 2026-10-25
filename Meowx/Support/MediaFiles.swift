@@ -1,4 +1,5 @@
 import Foundation
+import MeowxCore
 
 enum MediaFiles {
     static let subtitles: Set<String> = ["srt", "vtt", "ass", "ssa", "sub", "idx"]

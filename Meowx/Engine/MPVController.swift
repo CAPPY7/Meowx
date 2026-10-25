@@ -1,4 +1,5 @@
 import Foundation
+import MeowxCore
 import os
 
 struct MediaTrack: Identifiable, Equatable {
@@ -178,7 +179,7 @@ final class MPVController {
         }
         guard let renderContext else { return }
         _ = mpv_render_context_update(renderContext)
-        meowx_gl_render(renderContext, Int32(width), Int32(height), 1, 1)
+        _ = meowx_gl_render(renderContext, Int32(width), Int32(height), 1, 1)
         mpv_render_context_report_swap(renderContext)
     }
 
@@ -245,10 +246,11 @@ final class MPVController {
         command(["sub-add", path, "select"])
     }
 
-    func screenshot(to url: URL, format: String) {
+    @discardableResult
+    func screenshot(to url: URL, format: String) -> Bool {
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         setString("screenshot-format", format)
-        command(["screenshot-to-file", url.path])
+        return command(["screenshot-to-file", url.path]) >= 0
     }
 
     func apply(_ settings: PlayerSettings) {

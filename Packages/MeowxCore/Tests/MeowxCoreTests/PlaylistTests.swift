@@ -91,8 +91,8 @@ final class PlaylistTests: XCTestCase {
         var seen = Set<UUID>()
         var cursor = playlist.current
         for _ in 0..<4 {
-            guard let cursor else { return XCTFail("missing item") }
-            seen.insert(cursor.id)
+            guard let current = cursor else { return XCTFail("missing item") }
+            seen.insert(current.id)
             cursor = playlist.skipped(by: 1)
         }
         XCTAssertEqual(seen.count, 4)

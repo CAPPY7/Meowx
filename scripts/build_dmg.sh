@@ -17,7 +17,11 @@ fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/build/Meowx-$VERSION.dmg"
 mkdir -p "$ROOT/build"
-rm -f "$OUT"
+rm -f "$OUT" "$OUT.sha256"
+cleanup() {
+  hdiutil detach /Volumes/Meowx >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
 create-dmg \
   --volname "Meowx" \
   --window-size 600 400 \

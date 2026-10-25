@@ -19,36 +19,43 @@ if [[ "$MAJOR" -lt 26 ]]; then
   exit 1
 fi
 
-API="https://api.github.com/repos/Cappy7/Meowx/releases/latest"
-URL="$(curl -fsSL "$API" | grep -o 'https://[^"]*Meowx-[^"]*\.dmg' | head -1 || true)"
-if [[ -z "$URL" ]]; then
-  echo "Couldn't find a Meowx DMG in the latest GitHub release." >&2
-  exit 1
-fi
-
+BASE="https://github.com/Cappy7/Meowx/releases/latest/download"
 WORKDIR="$(mktemp -d)"
+MOUNT=""
 cleanup() {
-  if [[ -n "${MOUNT:-}" ]]; then
+  if [[ -n "$MOUNT" ]]; then
     hdiutil detach "$MOUNT" >/dev/null 2>&1 || true
   fi
   rm -rf "$WORKDIR"
 }
 trap cleanup EXIT
 
-echo "Downloading $URL"
-curl -fL "$URL" -o "$WORKDIR/Meowx.dmg"
-MOUNT="$(hdiutil attach "$WORKDIR/Meowx.dmg" -nobrowse | awk '/\/Volumes\// { print substr($0, index($0, "/Volumes/")); exit }')"
-if [[ -z "$MOUNT" || ! -d "$MOUNT/Meowx.app" ]]; then
+echo "Downloading Meowx"
+curl -fL "$BASE/Meowx.dmg" -o "$WORKDIR/Meowx.dmg"
+curl -fL "$BASE/Meowx.dmg.sha256" -o "$WORKDIR/Meowx.dmg.sha256"
+HASH="$(awk 'NR == 1 { print $1 }' "$WORKDIR/Meowx.dmg.sha256")"
+if [[ ! "$HASH" =~ ^[0-9a-fA-F]{64}$ ]]; then
+  echo "The checksum file is not a SHA256 hash." >&2
+  exit 1
+fi
+printf '%s  %s\n' "$HASH" "$WORKDIR/Meowx.dmg" | shasum -a 256 -c -
+
+mkdir -p "$WORKDIR/mnt"
+hdiutil attach "$WORKDIR/Meowx.dmg" -nobrowse -quiet -mountpoint "$WORKDIR/mnt"
+MOUNT="$WORKDIR/mnt"
+if [[ ! -d "$MOUNT/Meowx.app" ]]; then
   echo "The disk image did not contain Meowx.app." >&2
   exit 1
 fi
 
+osascript -e 'tell application "Meowx" to quit' >/dev/null 2>&1 || true
 DEST="/Applications/Meowx.app"
 rm -rf "$DEST"
 if ! cp -R "$MOUNT/Meowx.app" "$DEST"; then
-  echo "Couldn't copy Meowx into /Applications. Move Meowx.app there yourself from $MOUNT" >&2
+  echo "Couldn't copy Meowx into /Applications." >&2
   exit 1
 fi
 xattr -dr com.apple.quarantine "$DEST" || true
 echo "Installed $DEST"
-echo "Open Meowx from Applications. If macOS blocks it, allow it under System Settings > Privacy & Security > Open Anyway."
+echo "If macOS blocks the first launch, go to System Settings > Privacy & Security and click Open Anyway."
+echo "Right-click > Open does not clear this warning on current macOS."

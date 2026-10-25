@@ -39,4 +39,23 @@ final class ResumeStoreTests: XCTestCase {
         let remote = ResumeStore.key(for: URL(string: "https://example.com/a.mkv")!)
         XCTAssertEqual(remote, "https://example.com/a.mkv")
     }
+
+    func testMissingFileStartsEmpty() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = ResumeStore(directory: directory)
+        XCTAssertNil(store.position(for: "missing"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("resume.json").path))
+    }
+
+    func testCorruptFileDoesNotCrash() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try Data("{not-json".utf8).write(to: directory.appendingPathComponent("resume.json"))
+        let store = ResumeStore(directory: directory)
+        XCTAssertNil(store.position(for: "movie"))
+        store.remember(position: 20, duration: 100, for: "movie")
+        XCTAssertEqual(store.position(for: "movie") ?? 0, 20, accuracy: 0.001)
+    }
 }

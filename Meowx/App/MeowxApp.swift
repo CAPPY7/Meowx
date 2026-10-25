@@ -4,6 +4,10 @@ import SwiftUI
 struct MeowxApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    init() {
+        MeowxSelfTest.runIfRequested()
+    }
+
     var body: some Scene {
         Window("Meowx", id: "main") {
             ContentView()
@@ -84,6 +88,7 @@ struct MeowxCommands: Commands {
                 .keyboardShortcut("i", modifiers: [])
             Button("Show in Finder") { PlayerModel.shared.revealCurrent() }
                 .disabled(PlayerModel.shared.playlist.current?.url.isFileURL != true)
+            Button("Set as Default Player") { PlayerModel.shared.makeDefaultPlayer() }
         }
         CommandGroup(after: .help) {
             Button("Keyboard Shortcuts") { PlayerModel.shared.shortcutPrompt = true }

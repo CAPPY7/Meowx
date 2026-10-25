@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,7 +18,14 @@ jobs:
         run: brew install mpv ffmpeg dylibbundler create-dmg
       - name: Version
         id: version
-        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=0.0.0-manual" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Unit tests
+        run: swift test --package-path Packages/MeowxCore
       - name: Build
         run: >
           xcodebuild
@@ -40,38 +48,45 @@ jobs:
           mkdir -p build/dist
           rm -rf build/dist/Meowx.app
           cp -R "$APP" build/dist/Meowx.app
+      - name: Verify bundle
+        run: scripts/verify_bundle.sh build/dist/Meowx.app
       - name: Create DMG
-        run: scripts/build_dmg.sh build/dist/Meowx.app "${{ steps.version.outputs.value }}"
+        run: |
+          ok=0
+          for attempt in 1 2 3; do
+            if scripts/build_dmg.sh build/dist/Meowx.app "${{ steps.version.outputs.value }}"; then
+              ok=1
+              break
+            fi
+            echo "create-dmg attempt ${attempt} failed"
+            hdiutil detach /Volumes/Meowx >/dev/null 2>&1 || true
+            sleep 2
+          done
+          test "$ok" = 1
+          cp "build/Meowx-${{ steps.version.outputs.value }}.dmg" build/Meowx.dmg
+          shasum -a 256 build/Meowx.dmg | tee build/Meowx.dmg.sha256
       - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
             build/Meowx-${{ steps.version.outputs.value }}.dmg
             build/Meowx-${{ steps.version.outputs.value }}.dmg.sha256
+            build/Meowx.dmg
+            build/Meowx.dmg.sha256
+      - name: Upload manual build
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Meowx-manual
+          path: |
+            build/Meowx-*.dmg
+            build/Meowx-*.dmg.sha256
+            build/Meowx.dmg
+            build/Meowx.dmg.sha256
       - name: Update Homebrew tap
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
           VERSION: ${{ steps.version.outputs.value }}
-        run: |
-          if [ -z "$TAP_TOKEN" ]; then
-            echo "TAP_TOKEN is not set. The DMG was published, but the Homebrew tap was not updated."
-            exit 0
-          fi
-          SHA="$(shasum -a 256 "build/Meowx-${VERSION}.dmg" | awk '{print $1}')"
-          git clone "https://x-access-token:${TAP_TOKEN}@github.com/Cappy7/homebrew-meowx.git" tap
-          python3 - "$VERSION" "$SHA" <<'PY'
-          import pathlib, sys
-          version, sha = sys.argv[1], sys.argv[2]
-          path = pathlib.Path("tap/Casks/meowx.rb")
-          text = path.read_text()
-          text = text.replace('version "1.0.0"', f'version "{version}"', 1) if 'version "1.0.0"' in text else text
-          import re
-          text = re.sub(r'version "[^"]+"', f'version "{version}"', text, count=1)
-          text = re.sub(r'sha256 "[^"]+"', f'sha256 "{sha}"', text, count=1)
-          path.write_text(text)
-          PY
-          git -C tap config user.email "actions@github.com"
-          git -C tap config user.name "Meowx Release"
-          git -C tap add Casks/meowx.rb
-          git -C tap commit -m "meowx ${VERSION}"
-          git -C tap push
+        run: scripts/update_tap.sh "$VERSION" "$(awk '{print $1}' "build/Meowx-${VERSION}.dmg.sha256")"
