@@ -50,6 +50,27 @@ if [[ -d "$APP/Contents/Frameworks" ]]; then
   done < <(find "$APP/Contents/Frameworks" -type f \( -name '*.dylib' -o -name '*.so' \) -print0)
 fi
 
+if [[ -d "$APP/Contents/Helpers" ]]; then
+  while IFS= read -r -d '' bin; do
+    if file "$bin" | grep -q 'Mach-O'; then
+      check_links "$bin"
+      check_rpaths "$bin"
+    fi
+  done < <(find "$APP/Contents/Helpers" -type f -print0)
+fi
+
+for required in \
+  "$APP/Contents/Helpers/yt-dlp" \
+  "$APP/Contents/Helpers/ffmpeg" \
+  "$APP/Contents/Helpers/ffprobe" \
+  "$APP/Contents/Resources/mpv/scripts/ytdl_hook.lua"
+do
+  if [[ ! -e "$required" ]]; then
+    echo "missing $required" >&2
+    fail=1
+  fi
+done
+
 if [[ "$fail" -ne 0 ]]; then
   exit 1
 fi

@@ -305,7 +305,19 @@ final class ThumbnailService {
             bytesPerRow: width * 4,
             bitsPerPixel: 32
         ), let plane = rep.bitmapData else { return nil }
-        data.withUnsafeBytes { raw in
+        let row = width * 4
+        var upright = Data(count: width * height * 4)
+        data.withUnsafeBytes { src in
+            upright.withUnsafeMutableBytes { dst in
+                guard let from = src.baseAddress, let to = dst.baseAddress else { return }
+                for y in 0..<height {
+                    let source = from.advanced(by: (height - 1 - y) * row)
+                    let dest = to.advanced(by: y * row)
+                    dest.copyMemory(from: source, byteCount: row)
+                }
+            }
+        }
+        upright.withUnsafeBytes { raw in
             guard let base = raw.baseAddress else { return }
             plane.assign(from: base.assumingMemoryBound(to: UInt8.self), count: width * height * 4)
         }

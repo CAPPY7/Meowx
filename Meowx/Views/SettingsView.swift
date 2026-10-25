@@ -373,11 +373,11 @@ struct URLSheet: View {
                 .textFieldStyle(.roundedBorder)
                 .onSubmit { model.openURL(text) }
             if model.ytdlpPath == nil {
-                Text("YouTube and similar sites need yt-dlp installed separately. Meowx does not bundle it.")
+                Text("YouTube and similar sites need yt-dlp. This build looks for the copy inside Meowx, then one already on the Mac.")
                     .font(Theme.body)
                     .foregroundStyle(Theme.secondary)
             } else {
-                Text("yt-dlp is installed, so site links can open when the hook is in the app.")
+                Text("Site links open with the bundled player tools. ffmpeg is used when a site splits picture and sound.")
                     .font(Theme.body)
                     .foregroundStyle(Theme.secondary)
             }

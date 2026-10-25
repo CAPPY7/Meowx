@@ -218,7 +218,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             return false
         }
-        PlayerModel.shared.poke()
         guard let token = ShortcutKey.token(for: Int(event.keyCode)) else { return false }
         let input = ShortcutInput(
             token: token,
@@ -237,6 +236,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if !model.fullscreen { return false }
         }
         uiLog.debug("shortcut \(shortcut.id, privacy: .public)")
+        if ChromeWake.revealsBar(shortcutID: shortcut.id) {
+            model.poke()
+        }
         model.performShortcut(shortcut.id)
         return true
     }

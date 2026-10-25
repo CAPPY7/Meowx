@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.14
+
+- Volume and seek keys no longer wake the control bar. Every key used to.
+- Seek-bar previews are flipped the other way. The last build was still upside down.
+- YouTube and other site links use yt-dlp and ffmpeg shipped inside the app. ffmpeg is there for sites that split the picture and the sound. A copy already on the Mac is used only if the bundled one is missing.
+
 ## 1.0.13
 
 - Volume and seek show only their readout. The control bar stays hidden.

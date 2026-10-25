@@ -210,7 +210,17 @@ final class PlayerModel {
     func start() {
         guard !started else { return }
         started = true
-        ytdlpPath = Self.which("yt-dlp")
+        let helpers = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers").path
+        let tools = NetworkTools.resolve(
+            helperDirectory: helpers,
+            systemYtDlp: Self.which("yt-dlp"),
+            systemFfmpeg: Self.which("ffmpeg")
+        )
+        if let dir = tools.helperDirectory {
+            let current = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
+            setenv("PATH", "\(dir):\(current)", 1)
+        }
+        ytdlpPath = tools.ytdlp
         if let engine = MPVController(settings: settings, ytdlpPath: ytdlpPath) {
             engine.delegate = self
             engine.videoView = videoView
@@ -1302,7 +1312,7 @@ final class PlayerModel {
     }
 
     func copyDiagnostics() {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.13"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.14"
         let mpv = engine?.stringProp("mpv-version") ?? "unavailable"
         let hardware = hwdec.isEmpty ? (settings.hardwareDecoding ? "videotoolbox requested" : "off") : hwdec
         var lines = [
@@ -1839,7 +1849,7 @@ final class PlayerModel {
 
     func checkForUpdate(manual: Bool) {
         if !manual, !settings.checkForUpdates { return }
-        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.13"
+        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.14"
         Task { [weak self] in
             let found = await Self.latestReleaseTag()
             DispatchQueue.main.async { [weak self] in

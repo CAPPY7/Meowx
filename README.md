@@ -20,7 +20,7 @@ This repository is the Xcode project. It is not a prebuilt application. Build it
 - Subtitles (SRT, ASS/SSA, VTT, and embedded tracks), delays, font, size, color, and position
 - Multiple audio tracks
 - Open HTTP, HTTPS, HLS, RTSP, and RTMP addresses
-- yt-dlp for site links when you install it yourself (it is not bundled)
+- YouTube and other site links. The release build includes yt-dlp and ffmpeg.
 - Playlist overlay, reorder, search, and save as `.m3u`
 - Full screen, always on top, and a floating window (P). This is not system Picture in Picture.
 - Seek-bar thumbnail preview
@@ -198,7 +198,7 @@ scripts/build_dmg.sh "$APP" 1.0.0
 
 `scripts/bundle_libs.sh` ad-hoc signs every bundled library and then the app. An unsigned arm64 app will not launch. The Xcode project signs with `Meowx.entitlements`: the sandbox stays off, and library validation stays off so the bundled libmpv can load. The hardened runtime is not enabled.
 
-If you want YouTube and similar links, install `yt-dlp` yourself. The Xcode build copies mpv's `ytdl_hook.lua` into the app when it can find it. Meowx does not bundle yt-dlp.
+Open URL accepts a direct stream or a YouTube link. The app uses the yt-dlp and ffmpeg copies shipped inside it, and falls back to copies already on the Mac.
 
 ## Notes
 

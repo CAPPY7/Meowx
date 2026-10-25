@@ -52,9 +52,60 @@ if [[ -d "$FRAMEWORKS" ]]; then
   done < <(find "$FRAMEWORKS" -type f \( -name '*.dylib' -o -name '*.so' \) -print0)
 fi
 
+HELPERS="$APP/Contents/Helpers"
+mkdir -p "$HELPERS"
+curl -fL --retry 3 -o "$HELPERS/yt-dlp" "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
+chmod 755 "$HELPERS/yt-dlp"
+magic="$(xxd -p -l 4 "$HELPERS/yt-dlp" || true)"
+case "$magic" in
+  504b*)
+    tmp="$(mktemp -d)"
+    unzip -q "$HELPERS/yt-dlp" -d "$tmp"
+    packed="$(find "$tmp" -type f \( -name 'yt-dlp*' -o -perm -111 \) | head -1)"
+    if [[ -z "$packed" ]]; then
+      echo "error: yt-dlp zip had no binary" >&2
+      exit 1
+    fi
+    mv "$packed" "$HELPERS/yt-dlp"
+    chmod 755 "$HELPERS/yt-dlp"
+    rm -rf "$tmp"
+    ;;
+  cffaedfe|cefaedfe|cafebabe|2321*) ;;
+  *)
+    echo "error: downloaded yt-dlp is not a binary (magic $magic)" >&2
+    exit 1
+    ;;
+esac
+
+for tool in ffmpeg ffprobe; do
+  source_bin="$(command -v "$tool")"
+  cp "$source_bin" "$HELPERS/$tool"
+  chmod 755 "$HELPERS/$tool"
+  dylibbundler -od -b -x "$HELPERS/$tool" -d "$FRAMEWORKS" -p @executable_path/../Frameworks -s "$SEARCH"
+  rewrite_rpaths "$HELPERS/$tool"
+done
+
+HOOK_DEST="$APP/Contents/Resources/mpv/scripts/ytdl_hook.lua"
+if [[ ! -f "$HOOK_DEST" ]]; then
+  mkdir -p "$(dirname "$HOOK_DEST")"
+  HOOK="$(find "$(brew --prefix mpv)" "$(brew --prefix)/Cellar/mpv" "$(brew --prefix)/lib" -name ytdl_hook.lua -print -quit 2>/dev/null || true)"
+  if [[ -z "$HOOK" ]]; then
+    echo "error: ytdl_hook.lua was not copied into the app" >&2
+    exit 1
+  fi
+  cp "$HOOK" "$HOOK_DEST"
+fi
+
+if [[ -d "$FRAMEWORKS" ]]; then
+  while IFS= read -r -d '' lib; do
+    rewrite_rpaths "$lib"
+  done < <(find "$FRAMEWORKS" -type f \( -name '*.dylib' -o -name '*.so' \) -print0)
+fi
+
 while IFS= read -r -d '' lib; do
   codesign --force --sign - "$lib"
 done < <(find "$FRAMEWORKS" -type f \( -name '*.dylib' -o -name '*.so' \) -print0)
+codesign --force --sign - "$HELPERS/yt-dlp" "$HELPERS/ffmpeg" "$HELPERS/ffprobe"
 
 codesign --force --deep --sign - "$APP"
 echo "Bundled and ad-hoc signed $APP"

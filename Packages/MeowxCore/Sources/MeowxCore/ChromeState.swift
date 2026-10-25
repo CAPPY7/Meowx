@@ -48,3 +48,51 @@ public struct ChromeState: Equatable, Sendable {
         return false
     }
 }
+
+/// Volume and seek should show a readout only. Every other shortcut may reveal the bar.
+public enum ChromeWake {
+    public static func revealsBar(shortcutID: String) -> Bool {
+        switch shortcutID {
+        case "seekBack", "seekForward", "seekBack30", "seekForward30", "seekStart", "seekEnd",
+             "volumeUp", "volumeDown", "volumeUp10", "volumeDown10", "mute":
+            return false
+        default:
+            return true
+        }
+    }
+}
+
+public struct NetworkTools: Equatable, Sendable {
+    public var ytdlp: String?
+    public var ffmpeg: String?
+    public var helperDirectory: String?
+
+    public init(ytdlp: String?, ffmpeg: String?, helperDirectory: String?) {
+        self.ytdlp = ytdlp
+        self.ffmpeg = ffmpeg
+        self.helperDirectory = helperDirectory
+    }
+
+    /// Prefer the copies inside the app. Fall back to whatever is already on the Mac.
+    public static func resolve(helperDirectory: String?, systemYtDlp: String?, systemFfmpeg: String?) -> NetworkTools {
+        let bundledYt = executable(in: helperDirectory, name: "yt-dlp")
+        let bundledFf = executable(in: helperDirectory, name: "ffmpeg")
+        let directory = (bundledYt != nil || bundledFf != nil) ? helperDirectory : nil
+        return NetworkTools(
+            ytdlp: bundledYt ?? blankToNil(systemYtDlp),
+            ffmpeg: bundledFf ?? blankToNil(systemFfmpeg),
+            helperDirectory: directory
+        )
+    }
+
+    private static func blankToNil(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func executable(in directory: String?, name: String) -> String? {
+        guard let directory, !directory.isEmpty else { return nil }
+        let path = (directory as NSString).appendingPathComponent(name)
+        return FileManager.default.isExecutableFile(atPath: path) ? path : nil
+    }
+}

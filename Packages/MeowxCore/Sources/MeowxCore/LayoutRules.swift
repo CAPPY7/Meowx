@@ -166,7 +166,7 @@ public enum LyricsFile {
 public enum ThumbnailCache {
     public static func key(path: String, fileSize: Int) -> String {
         var hash: UInt64 = 14695981039346656037
-        let stamp = "v2|\(path)#\(fileSize)"
+        let stamp = "v3|\(path)#\(fileSize)"
         for byte in Data(stamp.utf8) {
             hash ^= UInt64(byte)
             hash &*= 1099511628211

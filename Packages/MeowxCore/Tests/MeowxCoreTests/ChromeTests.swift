@@ -81,6 +81,36 @@ final class ChromeTests: XCTestCase {
         XCTAssertTrue(state.visible)
     }
 
+    func testVolumeAndSeekDoNotRevealTheBar() {
+        XCTAssertFalse(ChromeWake.revealsBar(shortcutID: "volumeUp"))
+        XCTAssertFalse(ChromeWake.revealsBar(shortcutID: "volumeDown10"))
+        XCTAssertFalse(ChromeWake.revealsBar(shortcutID: "seekForward"))
+        XCTAssertFalse(ChromeWake.revealsBar(shortcutID: "seekBack30"))
+        XCTAssertFalse(ChromeWake.revealsBar(shortcutID: "mute"))
+        XCTAssertTrue(ChromeWake.revealsBar(shortcutID: "playPause"))
+        XCTAssertTrue(ChromeWake.revealsBar(shortcutID: "fullScreen"))
+    }
+
+    func testBundledToolsWinOverTheSystemCopies() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("meowx-tools-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let yt = dir.appendingPathComponent("yt-dlp")
+        let ff = dir.appendingPathComponent("ffmpeg")
+        FileManager.default.createFile(atPath: yt.path, contents: Data("echo\n".utf8))
+        FileManager.default.createFile(atPath: ff.path, contents: Data("echo\n".utf8))
+        try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: yt.path)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: ff.path)
+        let tools = NetworkTools.resolve(helperDirectory: dir.path, systemYtDlp: "/usr/bin/yt-dlp", systemFfmpeg: "/usr/bin/ffmpeg")
+        XCTAssertEqual(tools.ytdlp, yt.path)
+        XCTAssertEqual(tools.ffmpeg, ff.path)
+        XCTAssertEqual(tools.helperDirectory, dir.path)
+        let missing = NetworkTools.resolve(helperDirectory: nil, systemYtDlp: "  ", systemFfmpeg: "/usr/bin/ffmpeg")
+        XCTAssertNil(missing.ytdlp)
+        XCTAssertEqual(missing.ffmpeg, "/usr/bin/ffmpeg")
+        XCTAssertNil(missing.helperDirectory)
+    }
+
     private func playing() -> ChromeState {
         ChromeState(
             autoHideEnabled: true,
