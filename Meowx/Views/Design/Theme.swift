@@ -148,7 +148,7 @@ struct MeowxPlainStyle: ButtonStyle {
 
 private struct MeowxFocusRing: ViewModifier {
     @FocusState private var focused: Bool
-    @Environment(\.accessibilityIncreaseContrast) private var increaseContrast
+    @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
@@ -156,7 +156,7 @@ private struct MeowxFocusRing: ViewModifier {
             .focused($focused)
             .overlay {
                 Circle()
-                    .strokeBorder(Theme.accent, lineWidth: CGFloat(AccessibilityPaint.ringWidth(increaseContrast: increaseContrast)))
+                    .strokeBorder(Theme.accent, lineWidth: CGFloat(AccessibilityPaint.ringWidth(increaseContrast: contrast == .increased)))
                     .opacity(focused ? 1 : 0)
                     .allowsHitTesting(false)
             }
@@ -170,16 +170,16 @@ extension View {
 
 private struct MeowxSurface: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.accessibilityIncreaseContrast) private var increaseContrast
+    @Environment(\.colorSchemeContrast) private var contrast
     var radius: CGFloat
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        let solid = AccessibilityPaint.usesSolidSurface(reduceTransparency: reduceTransparency, increaseContrast: increaseContrast)
+        let solid = AccessibilityPaint.usesSolidSurface(reduceTransparency: reduceTransparency, increaseContrast: contrast == .increased)
         if solid {
             content
                 .background(Theme.scrimSolid, in: shape)
-                .overlay(shape.strokeBorder(Theme.dropBorder, lineWidth: CGFloat(AccessibilityPaint.ringWidth(increaseContrast: increaseContrast))))
+                .overlay(shape.strokeBorder(Theme.dropBorder, lineWidth: CGFloat(AccessibilityPaint.ringWidth(increaseContrast: contrast == .increased))))
         } else {
             content.background(.ultraThinMaterial, in: shape)
         }
@@ -188,14 +188,14 @@ private struct MeowxSurface: ViewModifier {
 
 private struct MeowxPill: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.accessibilityIncreaseContrast) private var increaseContrast
+    @Environment(\.colorSchemeContrast) private var contrast
 
     func body(content: Content) -> some View {
-        let solid = AccessibilityPaint.usesSolidSurface(reduceTransparency: reduceTransparency, increaseContrast: increaseContrast)
+        let solid = AccessibilityPaint.usesSolidSurface(reduceTransparency: reduceTransparency, increaseContrast: contrast == .increased)
         if solid {
             content
                 .background(Theme.scrimSolid, in: Capsule())
-                .overlay(Capsule().strokeBorder(Theme.dropBorder, lineWidth: CGFloat(AccessibilityPaint.ringWidth(increaseContrast: increaseContrast))))
+                .overlay(Capsule().strokeBorder(Theme.dropBorder, lineWidth: CGFloat(AccessibilityPaint.ringWidth(increaseContrast: contrast == .increased))))
         } else {
             content.background(.ultraThinMaterial, in: Capsule())
         }
@@ -222,13 +222,13 @@ extension View {
 
 private struct MeowxGlass: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.accessibilityIncreaseContrast) private var increaseContrast
+    @Environment(\.colorSchemeContrast) private var contrast
     var capsule: Bool
 
     func body(content: Content) -> some View {
         let rect = RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous)
-        let solid = AccessibilityPaint.usesSolidSurface(reduceTransparency: reduceTransparency, increaseContrast: increaseContrast)
-        let width = CGFloat(AccessibilityPaint.ringWidth(increaseContrast: increaseContrast))
+        let solid = AccessibilityPaint.usesSolidSurface(reduceTransparency: reduceTransparency, increaseContrast: contrast == .increased)
+        let width = CGFloat(AccessibilityPaint.ringWidth(increaseContrast: contrast == .increased))
         if solid {
             if capsule {
                 content
