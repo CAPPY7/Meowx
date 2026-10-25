@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+- Bundled libmpv loads on macOS 26. Duplicate Frameworks rpaths, including a trailing-slash copy, are removed before the app is signed. dyld was aborting `--self-test` with "duplicate LC_RPATH".
+
 ## 1.0.1
 
 - The app target imports MeowxCore, so Release builds can see PlayerSettings.
