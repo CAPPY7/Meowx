@@ -1,4 +1,5 @@
 import AppKit
+import MeowxCore
 import os
 
 /// Right-click menu for the video. Every item calls a real action. Unimplemented video adjustments are omitted.
@@ -32,6 +33,7 @@ enum VideoContextMenu {
         seek.addItem(item("Start", key: functionKey(0xF729), action: #selector(VideoMenuActions.goToStart)))
         seek.addItem(item("End", key: functionKey(0xF72B), action: #selector(VideoMenuActions.goToEnd)))
         menu.addItem(submenu("Seek", seek))
+        menu.addItem(submenu("Chapters", chaptersMenu(model)))
 
         let speed = NSMenu()
         for step in PlayerModel.speedSteps {
@@ -81,7 +83,13 @@ enum VideoContextMenu {
 
         let video = NSMenu()
         video.addItem(item("Rotate 90°", key: "r", action: #selector(VideoMenuActions.rotate)))
-        video.addItem(item("Cycle Aspect Ratio", key: "e", action: #selector(VideoMenuActions.cycleAspect)))
+        video.addItem(submenu("Aspect Ratio", aspectMenu(model)))
+        video.addItem(item("Flip Horizontal", key: "r", modifiers: .shift, state: model.flipHorizontal ? .on : .off, action: #selector(VideoMenuActions.flipHorizontal)))
+        video.addItem(item("Flip Vertical", key: "r", modifiers: .option, state: model.flipVertical ? .on : .off, action: #selector(VideoMenuActions.flipVertical)))
+        video.addItem(submenu("Crop", cropMenu(model)))
+        video.addItem(item("Deinterlace", key: "d", state: model.deinterlace ? .on : .off, action: #selector(VideoMenuActions.deinterlace)))
+        video.addItem(item("Reset Zoom and Pan", key: "g", action: #selector(VideoMenuActions.resetZoom)))
+        video.addItem(item("Picture Adjustments", key: "c", state: model.pictureOpen ? .on : .off, action: #selector(VideoMenuActions.picture)))
         menu.addItem(submenu("Video", video))
 
         menu.addItem(item("Full Screen", key: "f", state: model.fullscreen ? .on : .off, action: #selector(VideoMenuActions.fullScreen)))
@@ -99,6 +107,58 @@ enum VideoContextMenu {
         menu.addItem(item("Open URL…", key: "u", modifiers: .command, action: #selector(VideoMenuActions.openURL)))
         menu.addItem(item(model.playlistShown ? "Hide Playlist" : "Show Playlist", action: #selector(VideoMenuActions.togglePlaylist)))
         log.info("context menu built, \(menu.items.count, privacy: .public) top-level items")
+        return menu
+    }
+
+    private static func chaptersMenu(_ model: PlayerModel) -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(item("Previous", key: functionKey(0xF72C), action: #selector(VideoMenuActions.previousChapter)))
+        menu.addItem(item("Next", key: functionKey(0xF72D), action: #selector(VideoMenuActions.nextChapter)))
+        menu.addItem(.separator())
+        if model.chapters.isEmpty {
+            menu.addItem(disabled("No chapters"))
+        } else {
+            for chapter in model.chapters {
+                let name = ChapterNav.displayTitle(index: chapter.index, title: chapter.title)
+                let title = "\(name)  \(TimeFormat.string(chapter.time))"
+                menu.addItem(item(
+                    title,
+                    state: chapter.index == model.chapterIndex ? .on : .off,
+                    action: #selector(VideoMenuActions.pickChapter(_:)),
+                    represented: NSNumber(value: chapter.index)
+                ))
+            }
+        }
+        return menu
+    }
+
+    private static func aspectMenu(_ model: PlayerModel) -> NSMenu {
+        let menu = NSMenu()
+        for preset in AspectCycle.presets {
+            let title = preset.isEmpty ? "Default" : preset
+            menu.addItem(item(
+                title,
+                state: model.aspectOverride == preset ? .on : .off,
+                action: #selector(VideoMenuActions.pickAspect(_:)),
+                represented: preset
+            ))
+        }
+        menu.addItem(item("Cycle", key: "e", action: #selector(VideoMenuActions.cycleAspect)))
+        return menu
+    }
+
+    private static func cropMenu(_ model: PlayerModel) -> NSMenu {
+        let menu = NSMenu()
+        for preset in CropPreset.order {
+            let title = preset.isEmpty ? "None" : preset
+            menu.addItem(item(
+                title,
+                state: model.cropPreset == preset ? .on : .off,
+                action: #selector(VideoMenuActions.pickCrop(_:)),
+                represented: preset
+            ))
+        }
+        menu.addItem(item("Cycle", key: "e", modifiers: .shift, action: #selector(VideoMenuActions.cycleCrop)))
         return menu
     }
 
@@ -196,6 +256,24 @@ final class VideoMenuActions: NSObject {
     @objc func toggleMute() { PlayerModel.shared.toggleMute() }
     @objc func rotate() { PlayerModel.shared.rotateClockwise() }
     @objc func cycleAspect() { PlayerModel.shared.cycleAspect() }
+    @objc func pickAspect(_ sender: NSMenuItem) {
+        PlayerModel.shared.setAspect(sender.representedObject as? String ?? "")
+    }
+    @objc func flipHorizontal() { PlayerModel.shared.toggleFlipHorizontal() }
+    @objc func flipVertical() { PlayerModel.shared.toggleFlipVertical() }
+    @objc func pickCrop(_ sender: NSMenuItem) {
+        PlayerModel.shared.setCrop(sender.representedObject as? String ?? "")
+    }
+    @objc func cycleCrop() { PlayerModel.shared.cycleCrop() }
+    @objc func deinterlace() { PlayerModel.shared.toggleDeinterlace() }
+    @objc func resetZoom() { PlayerModel.shared.resetZoomAndPan() }
+    @objc func picture() { PlayerModel.shared.togglePicturePanel() }
+    @objc func previousChapter() { PlayerModel.shared.stepChapter(-1) }
+    @objc func nextChapter() { PlayerModel.shared.stepChapter(1) }
+    @objc func pickChapter(_ sender: NSMenuItem) {
+        guard let index = (sender.representedObject as? NSNumber)?.intValue else { return }
+        PlayerModel.shared.seekChapter(index)
+    }
     @objc func addSubtitle() { PlayerModel.shared.openSubtitleFile() }
     @objc func searchSubtitles() { PlayerModel.shared.searchOpen = true; PlayerModel.shared.poke() }
     @objc func fullScreen() { PlayerModel.shared.toggleFullscreen(); PlayerModel.shared.poke() }

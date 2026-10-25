@@ -38,7 +38,18 @@ final class ShortcutTests: XCTestCase {
         XCTAssertEqual(ShortcutKey.token(for: 6), "z")
         XCTAssertEqual(ShortcutKey.token(for: 115), "home")
         XCTAssertEqual(ShortcutKey.token(for: 18), "1")
-        XCTAssertNil(ShortcutKey.token(for: 116))
+        XCTAssertEqual(ShortcutKey.token(for: 116), "pageup")
+        XCTAssertEqual(ShortcutKey.token(for: 121), "pagedown")
+        XCTAssertEqual(ShortcutKey.token(for: 2), "d")
+        XCTAssertNil(ShortcutKey.token(for: 11))
+        XCTAssertEqual(ShortcutCatalog.match(ShortcutInput(token: "pageup"))?.id, "previousChapter")
+        XCTAssertEqual(ShortcutCatalog.match(ShortcutInput(token: "pagedown"))?.display, "Page Down")
+        XCTAssertEqual(ShortcutCatalog.match(ShortcutInput(token: "r", shift: true))?.id, "flipHorizontal")
+        XCTAssertEqual(ShortcutCatalog.match(ShortcutInput(token: "r", option: true))?.id, "flipVertical")
+        XCTAssertEqual(ShortcutCatalog.match(ShortcutInput(token: "e", shift: true))?.id, "cycleCrop")
+        XCTAssertEqual(ShortcutCatalog.match(ShortcutInput(token: "d"))?.id, "deinterlace")
+        XCTAssertEqual(ShortcutCatalog.match(ShortcutInput(token: "g"))?.id, "resetZoom")
+        XCTAssertEqual(ShortcutCatalog.match(ShortcutInput(token: "c"))?.id, "picture")
     }
 
     func testTextAndPlaybackDecisions() {

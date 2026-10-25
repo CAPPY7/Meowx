@@ -13,6 +13,9 @@ This repository is the Xcode project. It is not a prebuilt application. Build it
 - Plays the formats libmpv and FFmpeg support, including MKV, MP4, MOV, AVI, WebM, FLAC, MP3, and HLS
 - H.264, HEVC, VP9, AV1, and 10-bit video, with HDR tone mapping and VideoToolbox when it is available
 - Frame-accurate seek, frame step, 0.25×–4× speed with pitch correction, A-B loop, repeat, and shuffle
+- Chapters, with a menu, marks on the seek bar, and Page Up / Page Down
+- Rotate, aspect ratio, horizontal and vertical flip, crop presets, deinterlace, and zoom/pan reset
+- Picture adjustments for brightness, contrast, saturation, gamma, and hue
 - Resume position per file in `~/Library/Application Support/Meowx/`
 - Subtitles (SRT, ASS/SSA, VTT, and embedded tracks), delays, font, size, color, and position
 - Multiple audio tracks
@@ -99,6 +102,8 @@ These rows are the same list the app uses for keys, tooltips, and Help > Keyboar
 | 9 | Jump to 90% |
 | Home | Go to start |
 | End | Go to end |
+| Page Up | Previous chapter |
+| Page Down | Next chapter |
 | Up | Volume up |
 | Down | Volume down |
 | Shift+Up | Volume up 10 |
@@ -124,6 +129,12 @@ These rows are the same list the app uses for keys, tooltips, and Help > Keyboar
 | Shift+Cmd+S | Screenshot |
 | R | Rotate 90 degrees |
 | E | Cycle aspect ratio |
+| Shift+R | Flip horizontal |
+| Opt+R | Flip vertical |
+| Shift+E | Cycle crop |
+| D | Deinterlace |
+| G | Reset zoom and pan |
+| C | Picture adjustments |
 | F | Full screen |
 | Ctrl+Cmd+F | Full screen |
 | Esc | Leave full screen |

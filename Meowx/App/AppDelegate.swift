@@ -5,6 +5,7 @@ import os
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static let uiLog = Logger(subsystem: "com.cappy7.meowx", category: "ui")
     private let recentMenu = NSMenu()
+    private let chapterMenu = NSMenu()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         PlayerModel.shared.start()
@@ -19,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         DispatchQueue.main.async { [weak self] in
             self?.installRecentMenu()
+            self?.installChapterMenu()
         }
     }
 
@@ -36,7 +38,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Self.uiLog.info("Open Recent added to the File menu")
     }
 
+    private func installChapterMenu() {
+        guard let playback = NSApp.mainMenu?.item(withTitle: "Playback")?.submenu else {
+            Self.uiLog.error("Playback menu missing, Chapters was not added")
+            return
+        }
+        if playback.items.contains(where: { $0.submenu === chapterMenu }) { return }
+        chapterMenu.delegate = self
+        let item = NSMenuItem(title: "Chapters", action: nil, keyEquivalent: "")
+        item.submenu = chapterMenu
+        if let end = playback.items.firstIndex(where: { $0.title.hasPrefix("Go to End") }) {
+            playback.insertItem(item, at: end + 1)
+        } else {
+            playback.addItem(item)
+        }
+        Self.uiLog.info("Chapters menu added")
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
+        if menu === chapterMenu {
+            refillChapters(menu)
+            return
+        }
         guard menu === recentMenu else { return }
         menu.removeAllItems()
         let urls = NSDocumentController.shared.recentDocumentURLs
@@ -57,6 +80,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         clear.target = self
         clear.isEnabled = !urls.isEmpty
         menu.addItem(clear)
+    }
+
+    private func refillChapters(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let model = PlayerModel.shared
+        let previous = NSMenuItem(title: "Previous", action: #selector(chapterStep(_:)), keyEquivalent: "")
+        previous.target = self
+        previous.tag = -1
+        menu.addItem(previous)
+        let next = NSMenuItem(title: "Next", action: #selector(chapterStep(_:)), keyEquivalent: "")
+        next.target = self
+        next.tag = 1
+        menu.addItem(next)
+        menu.addItem(.separator())
+        if model.chapters.isEmpty {
+            let none = NSMenuItem(title: "No chapters", action: nil, keyEquivalent: "")
+            none.isEnabled = false
+            menu.addItem(none)
+            return
+        }
+        for chapter in model.chapters {
+            let name = ChapterNav.displayTitle(index: chapter.index, title: chapter.title)
+            let item = NSMenuItem(
+                title: "\(name)  \(TimeFormat.string(chapter.time))",
+                action: #selector(chapterPick(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.state = chapter.index == model.chapterIndex ? .on : .off
+            item.representedObject = NSNumber(value: chapter.index)
+            menu.addItem(item)
+        }
+    }
+
+    @objc private func chapterStep(_ sender: NSMenuItem) {
+        PlayerModel.shared.stepChapter(sender.tag)
+    }
+
+    @objc private func chapterPick(_ sender: NSMenuItem) {
+        guard let index = (sender.representedObject as? NSNumber)?.intValue else { return }
+        PlayerModel.shared.seekChapter(index)
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {

@@ -50,6 +50,8 @@ final class PlayerModel {
     private(set) var ytdlpPath: String?
     private var endGate = EndOfFileGate()
     private var fitOnLoad = false
+    private var loggedChapterCount = -1
+    private var cropFrame = (0, 0)
     var recentRevision = 0
 
     var playlist = Playlist()
@@ -77,6 +79,14 @@ final class PlayerModel {
     var aspectOverride = ""
     var subtitlesHidden = false
     var fileLoop = false
+    var chapters: [MediaChapter] = []
+    var chapterIndex = -1
+    var flipHorizontal = false
+    var flipVertical = false
+    var cropPreset = ""
+    var deinterlace = false
+    var picture = PictureLevels.neutral
+    var pictureOpen = false
     var hwdec = ""
     var videoWidth = 0
     var videoHeight = 0
@@ -659,6 +669,12 @@ final class PlayerModel {
         case "screenshot": screenshot()
         case "rotate": rotateClockwise()
         case "cycleAspect": cycleAspect()
+        case "flipHorizontal": toggleFlipHorizontal()
+        case "flipVertical": toggleFlipVertical()
+        case "cycleCrop": cycleCrop()
+        case "deinterlace": toggleDeinterlace()
+        case "resetZoom": resetZoomAndPan()
+        case "picture": togglePicturePanel()
         case "fullScreen", "fullScreenSystem", "leaveFullScreen": toggleFullscreen()
         case "pictureInPicture": togglePictureInPicture()
         case "alwaysOnTop": toggleAlwaysOnTop()
@@ -672,6 +688,8 @@ final class PlayerModel {
         case "addToPlaylist": openFiles(playNow: false)
         case "seekStart": seekToStart()
         case "seekEnd": seekToEnd()
+        case "previousChapter": stepChapter(-1)
+        case "nextChapter": stepChapter(1)
         default:
             if id.hasPrefix("jump"), let digit = Int(id.dropFirst(4)), (0...9).contains(digit) {
                 jumpToPercent(digit)
@@ -732,6 +750,110 @@ final class PlayerModel {
         aspectOverride = AspectCycle.next(current: aspectOverride)
         applyVideoAdjustments()
         flashStatus(AspectCycle.label(aspectOverride))
+    }
+
+    func setAspect(_ preset: String) {
+        guard allow("video") else { return }
+        aspectOverride = AspectCycle.presets.contains(preset) ? preset : ""
+        applyVideoAdjustments()
+        flashStatus(AspectCycle.label(aspectOverride))
+    }
+
+    func seekChapter(_ index: Int) {
+        guard allow("chapter") else { return }
+        goToChapter(index)
+    }
+
+    func stepChapter(_ direction: Int) {
+        guard allow("chapter") else { return }
+        guard let next = ChapterNav.neighbor(current: chapterIndex, count: chapters.count, direction: direction) else {
+            flashStatus(chapters.isEmpty ? "No chapters" : (direction > 0 ? "Last chapter" : "First chapter"))
+            return
+        }
+        goToChapter(next)
+    }
+
+    func toggleFlipHorizontal() {
+        guard allow("video") else { return }
+        flipHorizontal.toggle()
+        applyVideoAdjustments()
+        flashStatus(flipHorizontal ? "Flip horizontal on" : "Flip horizontal off")
+    }
+
+    func toggleFlipVertical() {
+        guard allow("video") else { return }
+        flipVertical.toggle()
+        applyVideoAdjustments()
+        flashStatus(flipVertical ? "Flip vertical on" : "Flip vertical off")
+    }
+
+    func setCrop(_ preset: String) {
+        guard allow("video") else { return }
+        applyCrop(preset)
+    }
+
+    func cycleCrop() {
+        guard allow("video") else { return }
+        applyCrop(CropPreset.next(cropPreset))
+    }
+
+    func toggleDeinterlace() {
+        guard allow("video") else { return }
+        deinterlace.toggle()
+        applyVideoAdjustments()
+        flashStatus(deinterlace ? "Deinterlace on" : "Deinterlace off")
+    }
+
+    func resetZoomAndPan() {
+        guard allow("video") else { return }
+        engine?.setDouble("video-zoom", 0)
+        engine?.setDouble("video-pan-x", 0)
+        engine?.setDouble("video-pan-y", 0)
+        flashStatus("Zoom and pan reset")
+    }
+
+    func togglePicturePanel() {
+        pictureOpen.toggle()
+        if pictureOpen { flashStatus("Picture") }
+        evaluateChrome(reason: "picture")
+        poke()
+    }
+
+    func closePicturePanel() {
+        guard pictureOpen else { return }
+        pictureOpen = false
+        evaluateChrome(reason: "picture")
+    }
+
+    func updatePicture(_ body: (inout PictureLevels) -> Void) {
+        var copy = picture
+        body(&copy)
+        picture = copy.clamped()
+        applyPicture()
+        poke()
+    }
+
+    func resetPicture() {
+        picture = .neutral
+        applyPicture()
+        flashStatus("Picture reset")
+    }
+
+    private func goToChapter(_ index: Int) {
+        guard chapters.indices.contains(index) else {
+            flashStatus("No chapters")
+            return
+        }
+        let chapter = chapters[index]
+        seek(to: chapter.time, exact: true)
+        chapterIndex = index
+        flashStatus(ChapterNav.status(index: index, title: chapter.title, count: chapters.count))
+    }
+
+    private func applyCrop(_ preset: String) {
+        cropPreset = CropPreset.order.contains(preset) ? preset : ""
+        applyVideoAdjustments()
+        flashStatus(CropPreset.label(cropPreset))
     }
 
     func resizeWindow(scale: Double) {
@@ -818,6 +940,19 @@ final class PlayerModel {
         engine?.setString("video-aspect-override", AspectCycle.mpvValue(aspectOverride))
         engine?.setString("sub-visibility", subtitlesHidden ? "no" : "yes")
         engine?.setString("loop-file", fileLoop ? "inf" : "no")
+        engine?.setVideoFilter(VideoFlip.filter(horizontal: flipHorizontal, vertical: flipVertical))
+        let crop = CropPreset.rectangle(videoWidth: videoWidth, videoHeight: videoHeight, preset: cropPreset)
+        engine?.setString("video-crop", crop ?? "")
+        engine?.setString("deinterlace", deinterlace ? "yes" : "no")
+        applyPicture()
+    }
+
+    private func applyPicture() {
+        engine?.setDouble("brightness", picture.brightness)
+        engine?.setDouble("contrast", picture.contrast)
+        engine?.setDouble("saturation", picture.saturation)
+        engine?.setDouble("gamma", picture.gamma)
+        engine?.setDouble("hue", picture.hue)
     }
 
     func toggleStats() {
@@ -906,7 +1041,7 @@ final class PlayerModel {
             hasVideo: showsVideo,
             scrubbing: scrubbing,
             pointerOverControls: controlsHovered || topHovered,
-            overlayOpen: urlPrompt || timePrompt || shortcutPrompt || searchOpen || menuOpen,
+            overlayOpen: urlPrompt || timePrompt || shortcutPrompt || searchOpen || menuOpen || pictureOpen,
             secondsSinceActivity: Date().timeIntervalSince(lastPoke),
             hideAfter: settings.chromeHideDelay,
             showingError: errorMessage != nil || engineError != nil
@@ -957,6 +1092,10 @@ final class PlayerModel {
         subDelay = 0
         audioDelay = 0
         position = 0
+        chapters = []
+        chapterIndex = -1
+        loggedChapterCount = -1
+        cropFrame = (0, 0)
         if item.url.isFileURL {
             NSDocumentController.shared.noteNewRecentDocumentURL(item.url)
             recentRevision += 1
@@ -982,6 +1121,12 @@ final class PlayerModel {
         audioCodec = snap.audioCodec
         videoBitrate = snap.videoBitrate
         cacheSeconds = snap.cacheSeconds
+        if videoWidth > 0, videoHeight > 0, (videoWidth, videoHeight) != cropFrame {
+            cropFrame = (videoWidth, videoHeight)
+            if !cropPreset.isEmpty { applyVideoAdjustments() }
+        }
+        chapterIndex = ChapterNav.index(at: position, chapters: chapters)
+        if tickCount % 5 == 0 { refreshChapters() }
         audioTrackID = engine.intProp("aid") ?? audioTrackID
         subtitleTrackID = engine.intProp("sid") ?? subtitleTrackID
         tickCount += 1
@@ -1015,6 +1160,16 @@ final class PlayerModel {
         showsVideo = tracks.isEmpty ? true : realVideo
         audioTrackID = engine?.intProp("aid") ?? 0
         subtitleTrackID = engine?.intProp("sid") ?? 0
+    }
+
+    private func refreshChapters() {
+        let next = engine?.chapters() ?? []
+        if next != chapters { chapters = next }
+        if chapters.count != loggedChapterCount {
+            loggedChapterCount = chapters.count
+            uiLog.info("chapters \(self.chapters.count, privacy: .public)")
+        }
+        chapterIndex = ChapterNav.index(at: position, chapters: chapters)
     }
 
     private func refreshMetadata() {
@@ -1102,6 +1257,9 @@ final class PlayerModel {
         paused = true
         artwork = nil
         tracks = []
+        chapters = []
+        chapterIndex = -1
+        loggedChapterCount = -1
         updateActivity()
         NowPlayingService.shared.update(model: self)
     }
@@ -1227,6 +1385,7 @@ extension PlayerModel: EngineDelegate {
         refreshMetadata()
         engine?.apply(settings)
         applyVideoAdjustments()
+        refreshChapters()
         if resumeOnLoad, let current = playlist.current {
             let key = ResumeStore.key(for: current.url)
             if let saved = resume.position(for: key), saved > 3 {

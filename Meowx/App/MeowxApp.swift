@@ -50,6 +50,8 @@ struct MeowxCommands: Commands {
             Button(menuTitle("Seek Backward 30 Seconds", "seekBack30")) { PlayerModel.shared.seek(by: -30) }
             Button(menuTitle("Go to Start", "seekStart")) { PlayerModel.shared.seekToStart() }
             Button(menuTitle("Go to End", "seekEnd")) { PlayerModel.shared.seekToEnd() }
+            Button(menuTitle("Previous Chapter", "previousChapter")) { PlayerModel.shared.stepChapter(-1) }
+            Button(menuTitle("Next Chapter", "nextChapter")) { PlayerModel.shared.stepChapter(1) }
             Button("Go to Time…") { PlayerModel.shared.timePrompt = true }
                 .keyboardShortcut("j")
             Button(menuTitle("Next Frame", "frameForward")) { PlayerModel.shared.frameStep(backward: false) }
@@ -83,6 +85,12 @@ struct MeowxCommands: Commands {
             Button(menuTitle("Full Screen", "fullScreen")) { PlayerModel.shared.toggleFullscreen() }
             Button(menuTitle("Rotate 90°", "rotate")) { PlayerModel.shared.rotateClockwise() }
             Button(menuTitle("Cycle Aspect Ratio", "cycleAspect")) { PlayerModel.shared.cycleAspect() }
+            Button(menuTitle("Flip Horizontal", "flipHorizontal")) { PlayerModel.shared.toggleFlipHorizontal() }
+            Button(menuTitle("Flip Vertical", "flipVertical")) { PlayerModel.shared.toggleFlipVertical() }
+            Button(menuTitle("Cycle Crop", "cycleCrop")) { PlayerModel.shared.cycleCrop() }
+            Button(menuTitle("Deinterlace", "deinterlace")) { PlayerModel.shared.toggleDeinterlace() }
+            Button(menuTitle("Reset Zoom and Pan", "resetZoom")) { PlayerModel.shared.resetZoomAndPan() }
+            Button(menuTitle("Picture Adjustments", "picture")) { PlayerModel.shared.togglePicturePanel() }
             Button("Half Size") { PlayerModel.shared.resizeWindow(scale: 0.5) }
                 .keyboardShortcut("1")
             Button("Actual Size") { PlayerModel.shared.resizeWindow(scale: 1) }

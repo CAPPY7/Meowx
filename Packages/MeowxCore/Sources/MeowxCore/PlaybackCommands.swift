@@ -29,10 +29,15 @@ public enum ShortcutKey {
         case 53: return "escape"
         case 115: return "home"
         case 119: return "end"
+        case 116: return "pageup"
+        case 121: return "pagedown"
         case 0: return "a"
         case 1: return "s"
         case 3: return "f"
+        case 2: return "d"
+        case 5: return "g"
         case 6: return "z"
+        case 8: return "c"
         case 7: return "x"
         case 9: return "v"
         case 14: return "e"
@@ -62,6 +67,157 @@ public enum ShortcutKey {
         case 25, 92: return "9"
         default: return nil
         }
+    }
+}
+
+public struct MediaChapter: Equatable, Sendable, Identifiable {
+    public var index: Int
+    public var title: String
+    public var time: Double
+    public var id: Int { index }
+
+    public init(index: Int, title: String, time: Double) {
+        self.index = index
+        self.title = title
+        self.time = time
+    }
+}
+
+public enum ChapterNav {
+    /// Chapter whose start is still at or just before the playhead. -1 when there are none.
+    public static func index(at position: Double, chapters: [MediaChapter]) -> Int {
+        guard position.isFinite else { return -1 }
+        var found = -1
+        for chapter in chapters where chapter.time.isFinite && chapter.time <= position + 0.15 {
+            found = chapter.index
+        }
+        return found
+    }
+
+    /// Next or previous chapter. A negative current index means playback is before the first chapter.
+    public static func neighbor(current: Int, count: Int, direction: Int) -> Int? {
+        guard count > 0, direction != 0 else { return nil }
+        let step = direction > 0 ? 1 : -1
+        let start = current < 0 ? (step > 0 ? -1 : count) : current
+        let next = start + step
+        guard next >= 0, next < count else { return nil }
+        return next
+    }
+
+    /// Fractions for seek-bar marks. A chapter at the very start or end is skipped.
+    public static func tickFractions(times: [Double], duration: Double) -> [Double] {
+        guard duration > 0, duration.isFinite else { return [] }
+        return times.compactMap { time in
+            guard time.isFinite, time > 0.4, time < duration - 0.4 else { return nil }
+            return min(1, max(0, time / duration))
+        }
+    }
+
+    public static func displayTitle(index: Int, title: String) -> String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Chapter \(index + 1)" : trimmed
+    }
+
+    public static func status(index: Int, title: String, count: Int) -> String {
+        let total = max(count, 1)
+        return "\(displayTitle(index: index, title: title)) (\(index + 1)/\(total))"
+    }
+}
+
+public enum VideoFlip {
+    public static func filter(horizontal: Bool, vertical: Bool) -> String {
+        switch (horizontal, vertical) {
+        case (false, false): return ""
+        case (true, false): return "hflip"
+        case (false, true): return "vflip"
+        case (true, true): return "hflip,vflip"
+        }
+    }
+}
+
+public enum CropPreset {
+    public static let order = ["", "16:9", "4:3", "2.35:1", "1:1"]
+
+    public static func next(_ current: String) -> String {
+        let index = order.firstIndex(of: current) ?? -1
+        return order[(index + 1) % order.count]
+    }
+
+    public static func label(_ preset: String) -> String {
+        preset.isEmpty ? "Crop: none" : "Crop: \(preset)"
+    }
+
+    /// Centered `WIDTHxHEIGHT` for mpv `video-crop`, or nil when there is nothing to crop.
+    public static func rectangle(videoWidth: Int, videoHeight: Int, preset: String) -> String? {
+        guard videoWidth >= 2, videoHeight >= 2 else { return nil }
+        let ratio: Double
+        switch preset {
+        case "16:9": ratio = 16.0 / 9.0
+        case "4:3": ratio = 4.0 / 3.0
+        case "2.35:1": ratio = 2.35
+        case "1:1": ratio = 1
+        default: return nil
+        }
+        let source = Double(videoWidth) / Double(videoHeight)
+        var width = videoWidth
+        var height = videoHeight
+        if source > ratio + 0.001 {
+            width = even(Int((Double(videoHeight) * ratio).rounded()), limit: videoWidth)
+        } else if source < ratio - 0.001 {
+            height = even(Int((Double(videoWidth) / ratio).rounded()), limit: videoHeight)
+        } else {
+            return nil
+        }
+        guard width >= 2, height >= 2, width < videoWidth || height < videoHeight else { return nil }
+        return "\(width)x\(height)"
+    }
+
+    private static func even(_ value: Int, limit: Int) -> Int {
+        var number = min(limit, max(2, value))
+        if number % 2 != 0 { number -= 1 }
+        return max(2, number)
+    }
+}
+
+public struct PictureLevels: Equatable, Sendable {
+    public var brightness: Double
+    public var contrast: Double
+    public var saturation: Double
+    public var gamma: Double
+    public var hue: Double
+
+    public static let neutral = PictureLevels(brightness: 0, contrast: 0, saturation: 0, gamma: 0, hue: 0)
+
+    public init(brightness: Double, contrast: Double, saturation: Double, gamma: Double, hue: Double) {
+        self.brightness = brightness
+        self.contrast = contrast
+        self.saturation = saturation
+        self.gamma = gamma
+        self.hue = hue
+    }
+
+    public var isNeutral: Bool {
+        Self.nearZero(brightness) && Self.nearZero(contrast) && Self.nearZero(saturation)
+            && Self.nearZero(gamma) && Self.nearZero(hue)
+    }
+
+    public static func clamped(_ value: Double) -> Double {
+        guard value.isFinite else { return 0 }
+        return min(100, max(-100, value))
+    }
+
+    public func clamped() -> PictureLevels {
+        PictureLevels(
+            brightness: Self.clamped(brightness),
+            contrast: Self.clamped(contrast),
+            saturation: Self.clamped(saturation),
+            gamma: Self.clamped(gamma),
+            hue: Self.clamped(hue)
+        )
+    }
+
+    private static func nearZero(_ value: Double) -> Bool {
+        abs(value) < 0.05
     }
 }
 

@@ -88,6 +88,8 @@ public struct ShortcutCommand: Equatable, Sendable, Identifiable {
         case "escape": return "Esc"
         case "home": return "Home"
         case "end": return "End"
+        case "pageup": return "Page Up"
+        case "pagedown": return "Page Down"
         case "bracketleft": return "["
         case "bracketright": return "]"
         case "backslash": return "\\"
@@ -119,6 +121,8 @@ public enum ShortcutCatalog {
         ShortcutCommand(id: "jump9", title: "Jump to 90%", group: "Playback", token: "9"),
         ShortcutCommand(id: "seekStart", title: "Go to start", group: "Playback", token: "home"),
         ShortcutCommand(id: "seekEnd", title: "Go to end", group: "Playback", token: "end"),
+        ShortcutCommand(id: "previousChapter", title: "Previous chapter", group: "Playback", token: "pageup"),
+        ShortcutCommand(id: "nextChapter", title: "Next chapter", group: "Playback", token: "pagedown"),
         ShortcutCommand(id: "volumeUp", title: "Volume up", group: "Audio", token: "up"),
         ShortcutCommand(id: "volumeDown", title: "Volume down", group: "Audio", token: "down"),
         ShortcutCommand(id: "volumeUp10", title: "Volume up 10", group: "Audio", token: "up", shift: true),
@@ -144,6 +148,12 @@ public enum ShortcutCatalog {
         ShortcutCommand(id: "screenshot", title: "Screenshot", group: "Playback", token: "s", command: true, shift: true),
         ShortcutCommand(id: "rotate", title: "Rotate 90 degrees", group: "Video", token: "r"),
         ShortcutCommand(id: "cycleAspect", title: "Cycle aspect ratio", group: "Video", token: "e"),
+        ShortcutCommand(id: "flipHorizontal", title: "Flip horizontal", group: "Video", token: "r", shift: true),
+        ShortcutCommand(id: "flipVertical", title: "Flip vertical", group: "Video", token: "r", option: true),
+        ShortcutCommand(id: "cycleCrop", title: "Cycle crop", group: "Video", token: "e", shift: true),
+        ShortcutCommand(id: "deinterlace", title: "Deinterlace", group: "Video", token: "d"),
+        ShortcutCommand(id: "resetZoom", title: "Reset zoom and pan", group: "Video", token: "g"),
+        ShortcutCommand(id: "picture", title: "Picture adjustments", group: "Video", token: "c"),
         ShortcutCommand(id: "fullScreen", title: "Full screen", group: "Window", token: "f"),
         ShortcutCommand(id: "fullScreenSystem", title: "Full screen", group: "Window", token: "f", command: true, control: true),
         ShortcutCommand(id: "leaveFullScreen", title: "Leave full screen", group: "Window", token: "escape"),
@@ -162,7 +172,8 @@ public enum ShortcutCatalog {
         ShortcutCommand(id: "repeat", title: "Repeat", group: "Playback"),
         ShortcutCommand(id: "loopStart", title: "Set loop start", group: "Playback"),
         ShortcutCommand(id: "loopEnd", title: "Set loop end", group: "Playback"),
-        ShortcutCommand(id: "seekBar", title: "Drag to seek. Left/Right 5 s, Shift 30 s", group: "Playback"),
+        ShortcutCommand(id: "seekBar", title: "Drag to seek. Left/Right 5 s, Shift 30 s. Chapter marks use Page Up and Page Down", group: "Playback"),
+        ShortcutCommand(id: "chapters", title: "Chapters (Page Up / Page Down)", group: "Playback"),
         ShortcutCommand(id: "volumeSlider", title: "Volume", group: "Audio")
     ]
 

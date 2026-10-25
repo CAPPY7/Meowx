@@ -265,6 +265,30 @@ final class MPVController {
         command(["sub-add", path, "select"])
     }
 
+    func chapters() -> [MediaChapter] {
+        let count = min(500, max(0, intProp("chapter-list/count") ?? 0))
+        guard count > 0 else { return [] }
+        var list: [MediaChapter] = []
+        list.reserveCapacity(count)
+        for index in 0..<count {
+            let prefix = "chapter-list/\(index)/"
+            list.append(MediaChapter(
+                index: index,
+                title: stringProp(prefix + "title") ?? "",
+                time: doubleProp(prefix + "time") ?? 0
+            ))
+        }
+        return list
+    }
+
+    func setVideoFilter(_ filter: String) {
+        if filter.isEmpty {
+            command(["vf", "clr"])
+        } else {
+            command(["vf", "set", filter])
+        }
+    }
+
     @discardableResult
     func screenshot(to url: URL, format: String) -> Bool {
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

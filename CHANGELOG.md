@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.8
+
+- Chapters. Playback > Chapters, the seek-bar marks, the control-bar menu, and the right-click menu list them. Page Up and Page Down move between them. A file with no chapters says so, and the keys do not seek.
+- Video > Flip Horizontal (Shift+R), Flip Vertical (Opt+R), Cycle Crop (Shift+E), Deinterlace (D), and Reset Zoom and Pan (G). The right-click Video menu also lists aspect and crop presets. Flip uses mpv's video filter, so it replaces any other video filter.
+- Picture adjustments (C), from the sun button or Video menu: brightness, contrast, saturation, gamma, and hue, each from -100 to 100, with Reset. The values stay for the session.
+- Audio output devices, normalization, a compressor, and an equalizer are not in this build.
+
 ## 1.0.7
 
 - The end of a file advances the playlist. Repeat one, repeat all, and shuffle use that ending once, so a second end signal cannot skip an item. The resume point is cleared when the file actually finishes.

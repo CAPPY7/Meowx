@@ -12,6 +12,8 @@ struct ControlsView: View {
                 transport
                 volume
                 Spacer(minLength: 8)
+                chaptersMenu
+                pictureButton
                 speedMenu
                 subtitleMenu
                 audioMenu
@@ -51,6 +53,14 @@ struct ControlsView: View {
                     }
                 )
                 .shortcutTip("seekBar")
+                .overlay {
+                    ChapterTicks(fractions: ChapterNav.tickFractions(
+                        times: model.chapters.map(\.time),
+                        duration: model.duration
+                    ))
+                    .allowsHitTesting(false)
+                    .padding(.horizontal, 7)
+                }
                 .background {
                     GeometryReader { proxy in
                         Color.clear
@@ -115,6 +125,40 @@ struct ControlsView: View {
                 .frame(width: 90)
                 .shortcutTip("volumeSlider", title: "Volume (Up/Down, Shift ±10)")
         }
+    }
+
+    private var chaptersMenu: some View {
+        Menu {
+            Button("Previous Chapter") { model.stepChapter(-1) }
+            Button("Next Chapter") { model.stepChapter(1) }
+            Divider()
+            if model.chapters.isEmpty {
+                Text("No chapters")
+            } else {
+                ForEach(model.chapters) { chapter in
+                    Button(chapterTitle(chapter)) { model.seekChapter(chapter.index) }
+                }
+            }
+        } label: {
+            Image(systemName: "list.number")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .shortcutTip("chapters")
+    }
+
+    private var pictureButton: some View {
+        Button { model.togglePicturePanel() } label: {
+            Image(systemName: "sun.max")
+        }
+        .foregroundStyle(model.picture.isNeutral ? Color.primary : Color.accentColor)
+        .shortcutTip("picture")
+    }
+
+    private func chapterTitle(_ chapter: MediaChapter) -> String {
+        let name = ChapterNav.displayTitle(index: chapter.index, title: chapter.title)
+        let mark = chapter.index == model.chapterIndex ? "✓ " : ""
+        return "\(mark)\(name)  \(TimeFormat.string(chapter.time))"
     }
 
     private var speedMenu: some View {
@@ -208,5 +252,59 @@ extension View {
     func shortcutTip(_ id: String, title: String? = nil) -> some View {
         let text = ShortcutCatalog.help(id, title: title)
         return help(text).accessibilityLabel(text)
+    }
+}
+
+private struct ChapterTicks: View {
+    var fractions: [Double]
+
+    var body: some View {
+        GeometryReader { proxy in
+            ForEach(Array(fractions.enumerated()), id: \.offset) { _, fraction in
+                Rectangle()
+                    .fill(Color.primary.opacity(0.9))
+                    .frame(width: 2, height: min(8, max(4, proxy.size.height * 0.45)))
+                    .position(x: proxy.size.width * fraction, y: proxy.size.height / 2)
+            }
+        }
+    }
+}
+
+struct PicturePanel: View {
+    var model: PlayerModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Picture")
+                    .font(.headline)
+                Spacer()
+                Button("Reset") { model.resetPicture() }
+                    .help("Reset brightness, contrast, saturation, gamma, and hue")
+                Button { model.closePicturePanel() } label: { Image(systemName: "xmark") }
+                    .help("Close picture adjustments")
+                    .accessibilityLabel("Close picture adjustments")
+            }
+            row("Brightness", model.picture.brightness) { value in model.updatePicture { $0.brightness = value } }
+            row("Contrast", model.picture.contrast) { value in model.updatePicture { $0.contrast = value } }
+            row("Saturation", model.picture.saturation) { value in model.updatePicture { $0.saturation = value } }
+            row("Gamma", model.picture.gamma) { value in model.updatePicture { $0.gamma = value } }
+            row("Hue", model.picture.hue) { value in model.updatePicture { $0.hue = value } }
+        }
+        .padding(12)
+        .frame(width: 280)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func row(_ title: String, _ value: Double, set: @escaping (Double) -> Void) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.caption)
+                .frame(width: 72, alignment: .leading)
+            Slider(value: Binding(get: { value }, set: set), in: -100...100)
+            Text("\(Int(value.rounded()))")
+                .font(.caption.monospacedDigit())
+                .frame(width: 32, alignment: .trailing)
+        }
     }
 }

@@ -80,6 +80,13 @@ struct ContentView: View {
         .overlay(alignment: .bottom) {
             if model.chromeShown { controls }
         }
+        .overlay(alignment: .topTrailing) {
+            if model.pictureOpen {
+                PicturePanel(model: model)
+                    .padding(.top, 56)
+                    .padding(.trailing, 16)
+            }
+        }
         .animation(.easeInOut(duration: 0.2), value: model.chromeShown)
         .background(Color.black)
         .onContinuousHover { phase in
