@@ -39,10 +39,11 @@ public struct ChromeState: Equatable, Sendable {
     }
 
     /// True while anything other than the picture should stay visible.
+    /// A resting pointer, including one sitting on the bar, does not keep it up.
     public var visible: Bool {
         if !autoHideEnabled { return true }
         if paused || !mediaLoaded || !hasVideo { return true }
-        if scrubbing || pointerOverControls || overlayOpen || showingError { return true }
+        if scrubbing || overlayOpen || showingError { return true }
         if secondsSinceActivity < hideAfter { return true }
         return false
     }

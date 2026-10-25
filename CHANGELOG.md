@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.11
+
+- Playlist, Open, and Open URL sit on the control bar next to subtitles. They no longer float on the picture. The name of the file sits at the top left and hides with the controls.
+- The bar hides while a video keeps playing, including when the pointer is resting. A small trackpad twitch no longer counts as activity. mpv's own on-video text is off.
+
 ## 1.0.10
 
 - The playlist is a short card at the top right, not a column down the whole picture. It starts closed. Close it with the X or Esc. The top buttons stay beside it.

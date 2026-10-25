@@ -14,6 +14,16 @@ public enum AccessibilityPaint {
     }
 }
 
+public enum PointerActivity {
+    /// Ignore trackpad jitter. A real move has to cover `minimum` points.
+    public static func moved(from previous: (x: Double, y: Double)?, to next: (x: Double, y: Double), minimum: Double = 6) -> Bool {
+        guard let previous, minimum > 0 else { return true }
+        let dx = next.x - previous.x
+        let dy = next.y - previous.y
+        return (dx * dx + dy * dy) >= minimum * minimum
+    }
+}
+
 public enum CursorChrome {
     /// A cursor hide can post a fake move. Ignore activity inside this window so the chrome does not flash back.
     public static func shouldIgnoreActivity(hiddenAt: Date?, now: Date, window: Double = 0.2) -> Bool {

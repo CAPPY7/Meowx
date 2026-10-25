@@ -19,6 +19,12 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertFalse(CursorChrome.shouldIgnoreActivity(hiddenAt: nil, now: hidden))
     }
 
+    func testPointerJitterDoesNotCountAsActivity() {
+        XCTAssertTrue(PointerActivity.moved(from: nil, to: (0, 0)))
+        XCTAssertFalse(PointerActivity.moved(from: (0, 0), to: (2, 2)))
+        XCTAssertTrue(PointerActivity.moved(from: (0, 0), to: (8, 1)))
+    }
+
     func testTickSkipsUnchangedValues() {
         XCTAssertFalse(TickGate.shouldWrite(10.0, 10.02, epsilon: 0.05))
         XCTAssertTrue(TickGate.shouldWrite(10.0, 10.2, epsilon: 0.05))

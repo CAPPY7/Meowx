@@ -57,8 +57,11 @@ final class ChromeTests: XCTestCase {
         state.scrubbing = false
 
         state.pointerOverControls = true
+        XCTAssertFalse(state.visible)
+        state.secondsSinceActivity = 1
         XCTAssertTrue(state.visible)
         state.pointerOverControls = false
+        state.secondsSinceActivity = 9
 
         state.overlayOpen = true
         XCTAssertTrue(state.visible)

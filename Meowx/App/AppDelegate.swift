@@ -13,8 +13,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Self.handle(event) ? nil : event
         }
         NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .scrollWheel]) { event in
-            if event.window != nil {
+            guard event.window != nil else { return event }
+            if event.type == .scrollWheel {
                 PlayerModel.shared.poke()
+            } else {
+                PlayerModel.shared.notePointer(
+                    x: event.locationInWindow.x,
+                    y: event.locationInWindow.y,
+                    dragged: event.type != .mouseMoved
+                )
             }
             return event
         }

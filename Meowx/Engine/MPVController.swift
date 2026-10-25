@@ -85,7 +85,7 @@ final class MPVController {
         option("keep-open", "yes")
         option("force-window", "no")
         option("osc", "no")
-        option("osd-level", "1")
+        option("osd-level", "0")
         option("osd-on-seek", "no")
         option("input-default-bindings", "no")
         option("input-vo-keyboard", "no")

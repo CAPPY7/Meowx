@@ -119,9 +119,6 @@ struct ContentView: View {
             }
         }
         .background(Theme.videoBlack)
-        .onContinuousHover { phase in
-            if case .active = phase { model.poke() }
-        }
     }
 
     private var controls: some View {
@@ -135,82 +132,47 @@ struct ContentView: View {
     }
 
     private var topBar: some View {
-        ZStack {
-            titlePill
-            HStack(spacing: Theme.s8) {
-                Theme.clear
-                    .frame(width: model.fullscreen ? 0 : model.trafficInset)
-                    .accessibilityHidden(true)
-                Spacer(minLength: 0)
-                Button(action: model.togglePlaylist) {
-                    Image(systemName: model.playlistShown ? "list.bullet.rectangle.fill" : "list.bullet.rectangle")
+        HStack(spacing: Theme.s8) {
+            Theme.clear
+                .frame(width: model.fullscreen ? 0 : model.trafficInset)
+                .accessibilityHidden(true)
+            if model.playlist.current != nil {
+                VStack(alignment: .leading, spacing: Theme.s4) {
+                    Text(model.displayTitle)
+                        .font(Theme.bodyStrong)
+                        .lineLimit(1)
+                    if !model.mediaDetail.isEmpty || model.showsHDR {
+                        HStack(spacing: Theme.s8) {
+                            if !model.mediaDetail.isEmpty {
+                                Text(model.mediaDetail)
+                                    .lineLimit(1)
+                            }
+                            if model.showsHDR {
+                                Text("HDR")
+                                    .font(Theme.captionStrong)
+                                    .foregroundStyle(Theme.ink)
+                                    .padding(.horizontal, Theme.s8)
+                                    .padding(.vertical, Theme.s4)
+                                    .background(Theme.magenta, in: Capsule())
+                            }
+                        }
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.inkSecondary)
+                    }
                 }
-                .shortcutTip("showPlaylist")
-                Button { model.openFiles(playNow: true) } label: { Image(systemName: "folder") }
-                    .shortcutTip("open")
-                Button { model.urlPrompt = true } label: { Image(systemName: "link") }
-                    .shortcutTip("openURL")
-                moreMenu
+                .foregroundStyle(Theme.ink)
+                .padding(.horizontal, Theme.s12)
+                .padding(.vertical, Theme.s8)
+                .meowxPill()
             }
-            .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
-            .foregroundStyle(Theme.ink)
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, Theme.s16)
         .padding(.top, Theme.s8)
         .onHover { hovering in
             model.topHovered = hovering
-            model.poke()
+            if hovering { model.poke() }
         }
-    }
-
-    private var titlePill: some View {
-        VStack(spacing: Theme.s4) {
-            Text(model.playlist.current == nil ? "Meowx" : model.displayTitle)
-                .font(Theme.bodyStrong)
-                .lineLimit(1)
-            if model.playlist.current != nil, !model.mediaDetail.isEmpty || model.showsHDR {
-                HStack(spacing: Theme.s8) {
-                    if !model.mediaDetail.isEmpty {
-                        Text(model.mediaDetail)
-                            .lineLimit(1)
-                    }
-                    if model.showsHDR {
-                        Text("HDR")
-                            .font(Theme.captionStrong)
-                            .foregroundStyle(Theme.ink)
-                            .padding(.horizontal, Theme.s8)
-                            .padding(.vertical, Theme.s4)
-                            .background(Theme.magenta, in: Capsule())
-                    }
-                }
-                .font(Theme.caption)
-                .foregroundStyle(Theme.inkSecondary)
-            }
-        }
-        .padding(.horizontal, Theme.s16)
-        .padding(.vertical, Theme.s8)
-        .meowxPill()
-        .frame(maxWidth: Theme.copyWidth)
-    }
-
-    private var moreMenu: some View {
-        Menu {
-            Button("Add Subtitle…") { model.openSubtitleFile() }
-                .disabled(model.playlist.current == nil)
-            Button("Stats") { model.toggleStats() }
-            Button("Show in Finder") { model.revealCurrent() }
-                .disabled(model.playlist.current?.url.isFileURL != true)
-            Button("Keyboard Shortcuts") { model.shortcutPrompt = true }
-            Button("Media Info") { model.showMediaInfo() }
-                .help("Container, tracks, bitrate, and path (Cmd+I)")
-        } label: {
-            Image(systemName: "ellipsis")
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .meowxHit()
-        .help("More")
-        .accessibilityLabel("More")
     }
 
     private var dropOverlay: some View {

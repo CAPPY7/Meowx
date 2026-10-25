@@ -1297,7 +1297,7 @@ final class PlayerModel {
     }
 
     func copyDiagnostics() {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.10"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.11"
         let mpv = engine?.stringProp("mpv-version") ?? "unavailable"
         let hardware = hwdec.isEmpty ? (settings.hardwareDecoding ? "videotoolbox requested" : "off") : hwdec
         var lines = [
@@ -1328,9 +1328,20 @@ final class PlayerModel {
     }
 
     private var cursorHiddenAt: Date?
+    private var lastPointer: (x: Double, y: Double)?
+
+    func notePointer(x: Double, y: Double, dragged: Bool) {
+        if !dragged {
+            let next = (x, y)
+            let moved = PointerActivity.moved(from: lastPointer, to: next)
+            lastPointer = next
+            guard moved else { return }
+        }
+        poke()
+    }
 
     func poke() {
-        if CursorChrome.shouldIgnoreActivity(hiddenAt: cursorHiddenAt, now: Date()) { return }
+        if CursorChrome.shouldIgnoreActivity(hiddenAt: cursorHiddenAt, now: Date(), window: 0.5) { return }
         cursorHiddenAt = nil
         lastPoke = Date()
         if !chromeShown {
@@ -1805,7 +1816,7 @@ final class PlayerModel {
 
     func checkForUpdate(manual: Bool) {
         if !manual, !settings.checkForUpdates { return }
-        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.10"
+        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.11"
         Task { [weak self] in
             let found = await Self.latestReleaseTag()
             DispatchQueue.main.async { [weak self] in

@@ -40,6 +40,17 @@ struct ControlsView: View {
                 volume
                 Spacer(minLength: Theme.s4)
                 tracksButton
+                Button(action: model.togglePlaylist) {
+                    Image(systemName: model.playlistShown ? "list.bullet.rectangle.fill" : "list.bullet.rectangle")
+                }
+                .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
+                .shortcutTip("showPlaylist")
+                Button { model.openFiles(playNow: true) } label: { Image(systemName: "folder") }
+                    .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
+                    .shortcutTip("open")
+                Button { model.urlPrompt = true } label: { Image(systemName: "link") }
+                    .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
+                    .shortcutTip("openURL")
                 speedButton
                 moreMenu
                 Button { model.toggleFullscreen() } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }
@@ -141,6 +152,11 @@ struct ControlsView: View {
                 .shortcutTip("jump")
             Button("Media Info") { model.showMediaInfo() }
                 .help("Container, tracks, bitrate, and path (Cmd+I)")
+            Button("Add Subtitle…") { model.openSubtitleFile() }
+                .disabled(model.playlist.current == nil)
+            Button("Show in Finder") { model.revealCurrent() }
+                .disabled(model.playlist.current?.url.isFileURL != true)
+            Button("Keyboard Shortcuts") { model.shortcutPrompt = true }
             Divider()
             Menu("Chapters") {
                 Button("Previous Chapter") { model.stepChapter(-1) }
