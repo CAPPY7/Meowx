@@ -1,0 +1,144 @@
+import AppKit
+import MeowxCore
+import SwiftUI
+
+enum Theme {
+    static let accent = color(DesignTokens.violet)
+    static let indigo = color(DesignTokens.indigo)
+    static let cyan = color(DesignTokens.cyan)
+    static let magenta = color(DesignTokens.magenta)
+    static let success = color(DesignTokens.success)
+    static let warning = color(DesignTokens.warning)
+    static let primary = Color.primary
+    static let secondary = Color.secondary
+    static let videoBlack = Color.black
+    static let ink = Color.white
+    static let inkSoft = Color.white.opacity(0.85)
+    static let inkSecondary = Color.white.opacity(0.72)
+    static let inkTertiary = Color.white.opacity(0.6)
+    static let inkFaint = Color.white.opacity(0.08)
+    static let inkTrack = Color.white.opacity(0.28)
+    static let tick = Color.white.opacity(0.9)
+    static let scrim = Color.black.opacity(0.55)
+    static let scrimStrong = Color.black.opacity(0.72)
+    static let scrimSolid = Color.black.opacity(0.92)
+    static let dropScrim = Color.black.opacity(0.35)
+    static let dropBorder = Color.white.opacity(0.85)
+    static let nsVideoBlack = NSColor.black
+
+    static let s4 = CGFloat(DesignTokens.spaces[0])
+    static let s8 = CGFloat(DesignTokens.spaces[1])
+    static let s12 = CGFloat(DesignTokens.spaces[2])
+    static let s16 = CGFloat(DesignTokens.spaces[3])
+    static let s24 = CGFloat(DesignTokens.spaces[4])
+    static let s32 = CGFloat(DesignTokens.spaces[5])
+    static let radiusSmall = CGFloat(DesignTokens.radiusSmall)
+    static let radiusMedium = CGFloat(DesignTokens.radiusMedium)
+    static let radiusLarge = CGFloat(DesignTokens.radiusLarge)
+    static let hit = CGFloat(DesignTokens.hit)
+
+    static let title = Font.system(size: DesignTokens.title, weight: .semibold)
+    static let body = Font.system(size: DesignTokens.body)
+    static let bodyStrong = Font.system(size: DesignTokens.body, weight: .semibold)
+    static let bodyDigits = Font.system(size: DesignTokens.body).monospacedDigit()
+    static let caption = Font.system(size: DesignTokens.caption)
+    static let captionStrong = Font.system(size: DesignTokens.caption, weight: .semibold)
+    static let digits = Font.system(size: DesignTokens.caption).monospacedDigit()
+    static let time = Font.system(size: DesignTokens.title, weight: .medium, design: .rounded).monospacedDigit()
+    static let mono = Font.system(size: DesignTokens.caption, design: .monospaced)
+    static let symbol = Font.system(size: DesignTokens.body, weight: .medium)
+
+    static let mark: CGFloat = 64
+    static let artwork: CGFloat = 320
+    static let placeholderArt: CGFloat = 220
+    static let timeWidth: CGFloat = 64
+    static let volumeWidth: CGFloat = 90
+    static let thumbWidth: CGFloat = 160
+    static let thumbHeight: CGFloat = 90
+    static let pictureWidth: CGFloat = 280
+    static let pictureLabel: CGFloat = 72
+    static let pictureValue: CGFloat = 32
+    static let hairline: CGFloat = 2
+    static let progressWidth: CGFloat = 120
+    static let progressHeight: CGFloat = 4
+    static let copyWidth: CGFloat = 420
+    static let sheetNarrow: CGFloat = 360
+    static let sheetMid: CGFloat = 460
+    static let sheetSearchWidth: CGFloat = 480
+    static let sheetSearchHeight: CGFloat = 420
+    static let listMin: CGFloat = 180
+    static let settingsWidth: CGFloat = 560
+    static let statsLabel: CGFloat = 64
+    static let windowMinWidth: CGFloat = 780
+    static let windowMinHeight: CGFloat = 480
+    static let playlistMin: CGFloat = 220
+    static let playlistIdeal: CGFloat = 280
+    static let playlistMax: CGFloat = 420
+    static let trafficClearance: CGFloat = 68
+    static let pictureInset: CGFloat = 56
+
+    static func fade(_ reduceMotion: Bool) -> Animation? {
+        let duration = DesignTokens.duration(DesignTokens.fade, reduceMotion: reduceMotion)
+        return duration == 0 ? nil : .easeInOut(duration: duration)
+    }
+
+    static func spring(_ reduceMotion: Bool) -> Animation? {
+        guard DesignTokens.duration(DesignTokens.springResponse, reduceMotion: reduceMotion) > 0 else { return nil }
+        return .spring(response: DesignTokens.springResponse, dampingFraction: DesignTokens.springDamping)
+    }
+
+    static func appKitFade(reduceMotion: Bool) -> TimeInterval {
+        DesignTokens.duration(DesignTokens.fade, reduceMotion: reduceMotion)
+    }
+
+    private static func color(_ rgb: RGB) -> Color {
+        Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
+    }
+}
+
+struct MeowxMark: View {
+    var side: CGFloat = Theme.mark
+
+    var body: some View {
+        Image("MeowxMark")
+            .resizable()
+            .renderingMode(.template)
+            .scaledToFit()
+            .frame(width: side, height: side)
+            .accessibilityHidden(true)
+    }
+}
+
+struct MeowxIconButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Theme.symbol)
+            .symbolRenderingMode(.hierarchical)
+            .frame(minWidth: Theme.hit, minHeight: Theme.hit)
+            .contentShape(Rectangle())
+    }
+}
+
+private struct MeowxSurface: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var radius: CGFloat
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        if reduceTransparency {
+            content.background(Theme.scrimSolid, in: shape)
+        } else {
+            content.background(.ultraThinMaterial, in: shape)
+        }
+    }
+}
+
+extension View {
+    func meowxSurface(_ radius: CGFloat) -> some View {
+        modifier(MeowxSurface(radius: radius))
+    }
+
+    func meowxHit() -> some View {
+        frame(minWidth: Theme.hit, minHeight: Theme.hit)
+    }
+}

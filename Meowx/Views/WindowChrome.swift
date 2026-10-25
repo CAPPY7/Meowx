@@ -1,4 +1,5 @@
 import AppKit
+import MeowxCore
 import os
 import SwiftUI
 
@@ -57,7 +58,8 @@ struct WindowChrome: NSViewRepresentable {
         private func fadeButtons(_ window: NSWindow, shown: Bool) {
             let alpha: CGFloat = shown ? 1 : 0
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.2
+                let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                context.duration = Theme.appKitFade(reduceMotion: reduce)
                 let kinds: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
                 for kind in kinds {
                     window.standardWindowButton(kind)?.animator().alphaValue = alpha

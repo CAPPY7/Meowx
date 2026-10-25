@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- New app icon: a white cat head with a play cutout, on a violet-to-indigo gradient. The same glyph is the empty-screen mark and the About window.
+- One design token list for color, type, spacing, corners, and motion. The player window stays dark. Settings and About follow the system. Reduce Motion drops the fades. Reduce Transparency uses a solid surface instead of the thin material.
+- Meowx > About Meowx shows the name, version, GPLv3, and links to the GitHub repo and license. Update checking is not in this build.
+
 ## 1.0.8
 
 - Chapters. Playback > Chapters, the seek-bar marks, the control-bar menu, and the right-click menu list them. Page Up and Page Down move between them. A file with no chapters says so, and the keys do not seek.

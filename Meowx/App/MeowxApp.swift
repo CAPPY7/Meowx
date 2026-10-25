@@ -15,10 +15,29 @@ struct MeowxApp: App {
         }
         .defaultSize(width: 1120, height: 720)
         .windowToolbarStyle(.unifiedCompact)
-        .commands { MeowxCommands() }
+        .commands {
+            AboutCommands()
+            MeowxCommands()
+        }
+
+        Window("About Meowx", id: "about") {
+            AboutView()
+        }
+        .defaultSize(width: 360, height: 320)
+        .windowResizability(.contentSize)
 
         Settings {
             SettingsView()
+        }
+    }
+}
+
+struct AboutCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About Meowx") { openWindow(id: "about") }
         }
     }
 }

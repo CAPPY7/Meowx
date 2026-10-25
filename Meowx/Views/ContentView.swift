@@ -7,18 +7,20 @@ struct ContentView: View {
     @State private var model = PlayerModel.shared
     @State private var columns = NavigationSplitViewVisibility.all
     @State private var columnsBeforeHide = NavigationSplitViewVisibility.all
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columns) {
             PlaylistView(model: model)
-                .navigationSplitViewColumnWidth(min: 220, ideal: 280, max: 420)
+                .navigationSplitViewColumnWidth(min: Theme.playlistMin, ideal: Theme.playlistIdeal, max: Theme.playlistMax)
         } detail: {
             stage
                 .navigationTitle("")
                 .toolbar(removing: .sidebarToggle)
                 .toolbarVisibility(.hidden, for: .windowToolbar)
         }
-        .frame(minWidth: 780, minHeight: 480)
+        .frame(minWidth: Theme.windowMinWidth, minHeight: Theme.windowMinHeight)
+        .preferredColorScheme(.dark)
         .background(WindowChrome(shown: model.chromeShown))
         .onAppear { model.start() }
         .onChange(of: model.chromeShown) { _, shown in
@@ -53,7 +55,7 @@ struct ContentView: View {
 
     private var stage: some View {
         ZStack {
-            Color.black
+            Theme.videoBlack
             VideoHost()
                 .opacity(model.showsVideo ? 1 : 0)
             if model.playlist.current == nil {
@@ -83,52 +85,52 @@ struct ContentView: View {
         .overlay(alignment: .topTrailing) {
             if model.pictureOpen {
                 PicturePanel(model: model)
-                    .padding(.top, 56)
-                    .padding(.trailing, 16)
+                    .padding(.top, Theme.pictureInset)
+                    .padding(.trailing, Theme.s16)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: model.chromeShown)
-        .background(Color.black)
+        .animation(Theme.fade(reduceMotion), value: model.chromeShown)
+        .background(Theme.videoBlack)
         .onContinuousHover { phase in
             if case .active = phase { model.poke() }
         }
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "play.rectangle")
-                .font(.system(size: 44, weight: .light))
-                .foregroundStyle(.white.opacity(0.85))
+        VStack(spacing: Theme.s12) {
+            MeowxMark()
+                .foregroundStyle(Theme.inkSoft)
             Text("Drop a video, album, or folder")
-                .font(.title3.weight(.medium))
-                .foregroundStyle(.white)
+                .font(Theme.title)
+                .foregroundStyle(Theme.ink)
             Text(model.ytdlpPath == nil
                  ? "Open a file or a stream. Install yt-dlp if you want site links."
                  : "Open a file, a stream, or a link yt-dlp can read.")
-                .font(.callout)
-                .foregroundStyle(.white.opacity(0.7))
+                .font(Theme.body)
+                .foregroundStyle(Theme.inkSecondary)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
+                .frame(maxWidth: Theme.copyWidth)
             Button("Open…") { model.openFiles(playNow: true) }
                 .keyboardShortcut(.defaultAction)
+                .meowxHit()
         }
-        .padding(24)
+        .padding(Theme.s24)
     }
 
     private var audioStage: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Theme.s16) {
             artwork
             Text(model.displayTitle)
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.white)
+                .font(Theme.title)
+                .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center)
             if !model.artist.isEmpty {
                 Text(model.artist)
-                    .font(.title3)
-                    .foregroundStyle(.white.opacity(0.72))
+                    .font(Theme.body)
+                    .foregroundStyle(Theme.inkSecondary)
             }
         }
-        .padding(32)
+        .padding(Theme.s32)
     }
 
     @ViewBuilder private var artwork: some View {
@@ -136,60 +138,61 @@ struct ContentView: View {
             Image(nsImage: artwork)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(maxWidth: 320, maxHeight: 320)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .frame(maxWidth: Theme.artwork, maxHeight: Theme.artwork)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
         } else {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.08))
-                .frame(width: 220, height: 220)
+            RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous)
+                .fill(Theme.inkFaint)
+                .frame(width: Theme.placeholderArt, height: Theme.placeholderArt)
                 .overlay {
                     Image(systemName: "music.note")
-                        .font(.system(size: 56, weight: .light))
-                        .foregroundStyle(.white.opacity(0.8))
+                        .font(Theme.symbol)
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(Theme.inkSoft)
                 }
         }
     }
 
     private var loading: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.s8) {
             ProgressView().controlSize(.large)
             Text(model.buffering ? "Buffering \(Int(model.cacheSeconds))s" : "Opening")
-                .font(.callout)
-                .foregroundStyle(.white)
+                .font(Theme.body)
+                .foregroundStyle(Theme.ink)
         }
-        .padding(16)
-        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
+        .padding(Theme.s16)
+        .background(Theme.scrim, in: RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
     }
 
     private func statusBadge(_ text: String) -> some View {
         VStack {
-            VStack(spacing: 6) {
+            VStack(spacing: Theme.s8) {
                 Text(text)
-                    .font(.callout.weight(.medium))
+                    .font(Theme.bodyStrong)
                 if let progress = model.statusProgress {
                     ZStack(alignment: .leading) {
-                        Capsule().fill(.white.opacity(0.28))
-                        Capsule().fill(.white).frame(width: 120 * progress)
+                        Capsule().fill(Theme.inkTrack)
+                        Capsule().fill(Theme.ink).frame(width: Theme.progressWidth * progress)
                     }
-                    .frame(width: 120, height: 4)
+                    .frame(width: Theme.progressWidth, height: Theme.progressHeight)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 10))
-            .foregroundStyle(.white)
+            .padding(.horizontal, Theme.s12)
+            .padding(.vertical, Theme.s8)
+            .background(Theme.scrim, in: RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
+            .foregroundStyle(Theme.ink)
             Spacer()
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 28)
+        .padding(.top, Theme.s24)
         .allowsHitTesting(false)
     }
 
     private var controls: some View {
         ControlsView(model: model)
-            .padding(12)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-            .padding(12)
+            .padding(Theme.s12)
+            .meowxSurface(Theme.radiusMedium)
+            .padding(Theme.s12)
             .onHover { hovering in
                 model.controlsHovered = hovering
                 model.poke()
@@ -197,15 +200,15 @@ struct ContentView: View {
     }
 
     private var topBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Theme.s8) {
             Button(action: togglePlaylist) {
                 Image(systemName: "sidebar.left")
             }
             .shortcutTip("showPlaylist")
             Text(model.playlist.current == nil ? "Meowx" : model.displayTitle)
-                .font(.headline)
+                .font(Theme.bodyStrong)
                 .lineLimit(1)
-            Spacer(minLength: 8)
+            Spacer(minLength: Theme.s8)
             Button { model.openFiles(playNow: true) } label: { Image(systemName: "folder") }
                 .shortcutTip("open")
             Button { model.urlPrompt = true } label: { Image(systemName: "link") }
@@ -216,14 +219,14 @@ struct ContentView: View {
             Button { model.toggleStats() } label: { Image(systemName: "gauge.with.dots.needle.67percent") }
                 .shortcutTip("stats")
         }
-        .buttonStyle(.borderless)
-        .foregroundStyle(.white)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .padding(.horizontal, 12)
-        .padding(.leading, model.fullscreen ? 0 : 68)
-        .padding(.top, model.fullscreen ? 8 : 4)
+        .buttonStyle(MeowxIconButtonStyle())
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, Theme.s12)
+        .padding(.vertical, Theme.s8)
+        .meowxSurface(Theme.radiusMedium)
+        .padding(.horizontal, Theme.s12)
+        .padding(.leading, model.fullscreen ? 0 : Theme.trafficClearance)
+        .padding(.top, model.fullscreen ? Theme.s8 : Theme.s4)
         .onHover { hovering in
             model.topHovered = hovering
             model.poke()
@@ -235,15 +238,15 @@ struct ContentView: View {
     }
 
     private var dropOverlay: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .strokeBorder(.white.opacity(0.85), lineWidth: 2)
-            .background(Color.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 16))
+        RoundedRectangle(cornerRadius: Theme.radiusMedium, style: .continuous)
+            .strokeBorder(Theme.dropBorder, lineWidth: Theme.hairline)
+            .background(Theme.dropScrim, in: RoundedRectangle(cornerRadius: Theme.radiusMedium, style: .continuous))
             .overlay {
                 Text("Drop to play")
-                    .font(.title3.weight(.medium))
-                    .foregroundStyle(.white)
+                    .font(Theme.title)
+                    .foregroundStyle(Theme.ink)
             }
-            .padding(16)
+            .padding(Theme.s16)
             .allowsHitTesting(false)
     }
 
@@ -289,7 +292,7 @@ struct VideoHost: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.black.cgColor
+        view.layer?.backgroundColor = Theme.nsVideoBlack.cgColor
         PlayerModel.shared.attachMainHost(view)
         return view
     }

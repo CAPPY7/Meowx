@@ -18,8 +18,8 @@ struct SettingsView: View {
                 VStack(alignment: .trailing) {
                     Slider(value: binding(\.chromeHideDelay), in: 1...10, step: 0.5)
                     Text("\(model.settings.chromeHideDelay, specifier: "%.1f") seconds")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.secondary)
                 }
             }
             TextField("Subtitle languages", text: binding(\.subtitleLanguage))
@@ -36,8 +36,8 @@ struct SettingsView: View {
                         step: 64
                     )
                     Text("\(model.settings.cacheMegabytes) MB. Applies now. Backward cache stays at most 128 MB.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.secondary)
                 }
             }
             LabeledContent("Screenshots") {
@@ -45,14 +45,14 @@ struct SettingsView: View {
                     Text(model.settings.resolvedScreenshotFolder.path)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.secondary)
                     Button("Choose…") { chooseFolder() }
                     Picker("Format", selection: binding(\.screenshotFormat)) {
                         Text("PNG").tag(ScreenshotFormat.png)
                         Text("JPEG").tag(ScreenshotFormat.jpg)
                     }
                     .labelsHidden()
-                    .frame(width: 90)
+                    .frame(width: Theme.volumeWidth)
                 }
             }
             TextField("Subtitle font", text: binding(\.subtitleFont))
@@ -66,13 +66,13 @@ struct SettingsView: View {
                 .help("#RRGGBB")
             SecureField("OpenSubtitles API key", text: binding(\.openSubtitlesAPIKey))
             Text("The key stays on this Mac. Online search is off until you add one.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(Theme.caption)
+                .foregroundStyle(Theme.secondary)
             Button("Reset to defaults", role: .destructive) { model.resetSettings() }
         }
         .formStyle(.grouped)
-        .frame(width: 560)
-        .padding(20)
+        .frame(width: Theme.settingsWidth)
+        .padding(Theme.s24)
     }
 
     private func binding(_ keyPath: WritableKeyPath<PlayerSettings, String>) -> Binding<String> {
@@ -118,20 +118,20 @@ struct URLSheet: View {
     @State private var text = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.s12) {
             Text("Open URL")
-                .font(.title3.weight(.semibold))
+                .font(Theme.title)
             TextField("https://, rtsp://, or a file path", text: $text)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit { model.openURL(text) }
             if model.ytdlpPath == nil {
                 Text("YouTube and similar sites need yt-dlp installed separately. Meowx does not bundle it.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(Theme.body)
+                    .foregroundStyle(Theme.secondary)
             } else {
                 Text("yt-dlp is installed, so site links can open when the hook is in the app.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(Theme.body)
+                    .foregroundStyle(Theme.secondary)
             }
             HStack {
                 Spacer()
@@ -140,8 +140,8 @@ struct URLSheet: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
-        .frame(width: 460)
+        .padding(Theme.s24)
+        .frame(width: Theme.sheetMid)
     }
 }
 
@@ -150,9 +150,9 @@ struct TimeSheet: View {
     @State private var text = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.s12) {
             Text("Go to Time")
-                .font(.title3.weight(.semibold))
+                .font(Theme.title)
             TextField("90, 1:23, or 1:02:03", text: $text)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit { model.jumpToTime(text) }
@@ -163,8 +163,8 @@ struct TimeSheet: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
-        .frame(width: 360)
+        .padding(Theme.s24)
+        .frame(width: Theme.sheetNarrow)
     }
 }
 
@@ -187,21 +187,21 @@ struct ShortcutSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.s12) {
             Text("Keyboard shortcuts")
-                .font(.title3.weight(.semibold))
+                .font(Theme.title)
             TextField("Search", text: $query)
                 .textFieldStyle(.roundedBorder)
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: Theme.s16) {
                     ForEach(grouped.keys.sorted(), id: \.self) { group in
                         Text(group)
-                            .font(.headline)
-                        Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 8) {
+                            .font(Theme.bodyStrong)
+                        Grid(alignment: .leading, horizontalSpacing: Theme.s24, verticalSpacing: Theme.s8) {
                             ForEach(grouped[group] ?? []) { row in
                                 GridRow {
-                                    Text(row.display).font(.callout.monospaced())
-                                    Text(row.title).font(.callout)
+                                    Text(row.display).font(Theme.bodyDigits)
+                                    Text(row.title).font(Theme.body)
                                 }
                             }
                         }
@@ -215,8 +215,8 @@ struct ShortcutSheet: View {
                     .keyboardShortcut(.cancelAction)
             }
         }
-        .padding(20)
-        .frame(width: 460, height: 460)
+        .padding(Theme.s24)
+        .frame(width: Theme.sheetMid, height: Theme.sheetMid)
     }
 }
 
@@ -228,13 +228,13 @@ struct SubtitleSearchSheet: View {
     @State private var message: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.s12) {
             Text("Online subtitles")
-                .font(.title3.weight(.semibold))
+                .font(Theme.title)
             TextField("Language code", text: $language)
                 .textFieldStyle(.roundedBorder)
             if let message {
-                Text(message).font(.callout).foregroundStyle(.secondary)
+                Text(message).font(Theme.body).foregroundStyle(Theme.secondary)
             }
             List(hits) { hit in
                 Button {
@@ -242,12 +242,12 @@ struct SubtitleSearchSheet: View {
                 } label: {
                     VStack(alignment: .leading) {
                         Text(hit.title).lineLimit(1)
-                        Text(hit.language.uppercased()).font(.caption).foregroundStyle(.secondary)
+                        Text(hit.language.uppercased()).font(Theme.caption).foregroundStyle(Theme.secondary)
                     }
                 }
                 .buttonStyle(.plain)
             }
-            .frame(minHeight: 180)
+            .frame(minHeight: Theme.listMin)
             HStack {
                 Button("Close") { model.searchOpen = false }
                 Spacer()
@@ -256,8 +256,8 @@ struct SubtitleSearchSheet: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
-        .frame(width: 480, height: 420)
+        .padding(Theme.s24)
+        .frame(width: Theme.sheetSearchWidth, height: Theme.sheetSearchHeight)
         .onAppear {
             if language.isEmpty {
                 language = model.settings.subtitleLanguage.split(separator: ",").first.map(String.init) ?? "en"
@@ -294,7 +294,7 @@ struct StatsOverlay: View {
     var body: some View {
         VStack {
             HStack {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: Theme.s4) {
                     stat("Decoder", model.hwdec.isEmpty ? "software" : "HW · \(model.hwdec)")
                     stat("Video", videoLine)
                     stat("Audio", model.audioCodec.isEmpty ? "—" : model.audioCodec)
@@ -302,15 +302,15 @@ struct StatsOverlay: View {
                     stat("Bitrate", bitrate)
                     stat("Cache", String(format: "%.1f s", model.cacheSeconds))
                 }
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(.white)
-                .padding(10)
-                .background(.black.opacity(0.62), in: RoundedRectangle(cornerRadius: 8))
+                .font(Theme.mono)
+                .foregroundStyle(Theme.ink)
+                .padding(Theme.s8)
+                .background(Theme.scrimStrong, in: RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
                 Spacer()
             }
             Spacer()
         }
-        .padding(12)
+        .padding(Theme.s12)
         .allowsHitTesting(false)
     }
 
@@ -326,8 +326,8 @@ struct StatsOverlay: View {
     }
 
     private func stat(_ name: String, _ value: String) -> some View {
-        HStack(spacing: 8) {
-            Text(name).frame(width: 64, alignment: .leading).foregroundStyle(.white.opacity(0.6))
+        HStack(spacing: Theme.s8) {
+            Text(name).frame(width: Theme.statsLabel, alignment: .leading).foregroundStyle(Theme.inkTertiary)
             Text(value)
         }
     }

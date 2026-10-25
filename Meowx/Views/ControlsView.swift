@@ -6,12 +6,12 @@ struct ControlsView: View {
     @State private var sliderWidth: CGFloat = 1
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.s8) {
             slider
-            HStack(spacing: 8) {
+            HStack(spacing: Theme.s8) {
                 transport
                 volume
-                Spacer(minLength: 8)
+                Spacer(minLength: Theme.s8)
                 chaptersMenu
                 pictureButton
                 speedMenu
@@ -27,21 +27,20 @@ struct ControlsView: View {
                     .shortcutTip("fullScreen")
             }
             .labelStyle(.iconOnly)
-            .buttonStyle(.borderless)
-            .font(.system(size: 15))
+            .buttonStyle(MeowxIconButtonStyle())
+            .foregroundStyle(Theme.primary)
         }
-        .foregroundStyle(.primary)
     }
 
     private var slider: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Theme.s4) {
             if model.showThumb {
                 thumbPreview
             }
-            HStack(spacing: 8) {
+            HStack(spacing: Theme.s8) {
                 Text(TimeFormat.string(model.scrubbing ? model.scrub : model.position))
-                    .font(.caption.monospacedDigit())
-                    .frame(width: 64, alignment: .leading)
+                    .font(Theme.time)
+                    .frame(width: Theme.timeWidth, alignment: .leading)
                 Slider(
                     value: Binding(
                         get: { model.scrubbing ? model.scrub : model.position },
@@ -59,11 +58,11 @@ struct ControlsView: View {
                         duration: model.duration
                     ))
                     .allowsHitTesting(false)
-                    .padding(.horizontal, 7)
+                    .padding(.horizontal, Theme.s8)
                 }
                 .background {
                     GeometryReader { proxy in
-                        Color.clear
+                        Theme.videoBlack.opacity(0)
                             .onAppear { sliderWidth = proxy.size.width }
                             .onChange(of: proxy.size.width) { _, width in sliderWidth = width }
                     }
@@ -79,35 +78,34 @@ struct ControlsView: View {
                     }
                 }
                 Text(TimeFormat.string(model.duration))
-                    .font(.caption.monospacedDigit())
-                    .frame(width: 64, alignment: .trailing)
+                    .font(Theme.time)
+                    .frame(width: Theme.timeWidth, alignment: .trailing)
             }
         }
     }
 
     private var thumbPreview: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Theme.s4) {
             if let image = model.thumbImage {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: 160, height: 90)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .frame(width: Theme.thumbWidth, height: Theme.thumbHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
             }
             Text(TimeFormat.string(model.thumbTime ?? model.position))
-                .font(.caption.monospacedDigit())
+                .font(Theme.digits)
         }
-        .padding(6)
-        .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 8))
+        .padding(Theme.s8)
+        .background(Theme.scrimStrong, in: RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
     }
 
     private var transport: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: Theme.s4) {
             Button { model.previous() } label: { Image(systemName: "backward.fill") }
                 .shortcutTip("previous")
             Button { model.togglePause() } label: {
                 Image(systemName: model.paused ? "play.fill" : "pause.fill")
-                    .frame(width: 22)
             }
             .shortcutTip("playPause", title: model.paused ? "Play" : "Pause")
             Button { model.next() } label: { Image(systemName: "forward.fill") }
@@ -116,13 +114,13 @@ struct ControlsView: View {
     }
 
     private var volume: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Theme.s4) {
             Button { model.toggleMute() } label: {
                 Image(systemName: model.muted || model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
             }
             .shortcutTip("mute")
             Slider(value: Binding(get: { model.muted ? 0 : model.volume }, set: { model.setVolume($0) }), in: 0...200)
-                .frame(width: 90)
+                .frame(width: Theme.volumeWidth)
                 .shortcutTip("volumeSlider", title: "Volume (Up/Down, Shift ±10)")
         }
     }
@@ -151,7 +149,7 @@ struct ControlsView: View {
         Button { model.togglePicturePanel() } label: {
             Image(systemName: "sun.max")
         }
-        .foregroundStyle(model.picture.isNeutral ? Color.primary : Color.accentColor)
+        .foregroundStyle(model.picture.isNeutral ? Theme.primary : Theme.accent)
         .shortcutTip("picture")
     }
 
@@ -167,7 +165,7 @@ struct ControlsView: View {
                 Button(speedLabel(speed)) { model.setSpeed(speed) }
             }
         } label: {
-            Text(speedLabel(model.speed)).font(.callout.monospacedDigit())
+            Text(speedLabel(model.speed)).font(Theme.bodyDigits)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -226,14 +224,14 @@ struct ControlsView: View {
     }
 
     private var loopButtons: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: Theme.s4) {
             Button("A") { model.setLoopA() }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(model.loopA == nil ? .primary : Color.accentColor)
+                .font(Theme.captionStrong)
+                .foregroundStyle(model.loopA == nil ? Theme.primary : Theme.accent)
                 .shortcutTip("loopCycle", title: "Set loop start")
             Button("B") { model.setLoopB() }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(model.loopB == nil ? .primary : Color.accentColor)
+                .font(Theme.captionStrong)
+                .foregroundStyle(model.loopB == nil ? Theme.primary : Theme.accent)
                 .shortcutTip("loopCycle", title: "Set loop end")
             if model.loopA != nil || model.loopB != nil {
                 Button { model.clearLoop() } label: { Image(systemName: "xmark") }
@@ -262,8 +260,8 @@ private struct ChapterTicks: View {
         GeometryReader { proxy in
             ForEach(Array(fractions.enumerated()), id: \.offset) { _, fraction in
                 Rectangle()
-                    .fill(Color.primary.opacity(0.9))
-                    .frame(width: 2, height: min(8, max(4, proxy.size.height * 0.45)))
+                    .fill(Theme.tick)
+                    .frame(width: Theme.hairline, height: min(Theme.s8, max(Theme.s4, proxy.size.height * 0.45)))
                     .position(x: proxy.size.width * fraction, y: proxy.size.height / 2)
             }
         }
@@ -274,14 +272,16 @@ struct PicturePanel: View {
     var model: PlayerModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.s8) {
             HStack {
                 Text("Picture")
-                    .font(.headline)
+                    .font(Theme.bodyStrong)
                 Spacer()
                 Button("Reset") { model.resetPicture() }
                     .help("Reset brightness, contrast, saturation, gamma, and hue")
+                    .meowxHit()
                 Button { model.closePicturePanel() } label: { Image(systemName: "xmark") }
+                    .buttonStyle(MeowxIconButtonStyle())
                     .help("Close picture adjustments")
                     .accessibilityLabel("Close picture adjustments")
             }
@@ -291,20 +291,20 @@ struct PicturePanel: View {
             row("Gamma", model.picture.gamma) { value in model.updatePicture { $0.gamma = value } }
             row("Hue", model.picture.hue) { value in model.updatePicture { $0.hue = value } }
         }
-        .padding(12)
-        .frame(width: 280)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding(Theme.s12)
+        .frame(width: Theme.pictureWidth)
+        .meowxSurface(Theme.radiusMedium)
     }
 
     private func row(_ title: String, _ value: Double, set: @escaping (Double) -> Void) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.s8) {
             Text(title)
-                .font(.caption)
-                .frame(width: 72, alignment: .leading)
+                .font(Theme.caption)
+                .frame(width: Theme.pictureLabel, alignment: .leading)
             Slider(value: Binding(get: { value }, set: set), in: -100...100)
             Text("\(Int(value.rounded()))")
-                .font(.caption.monospacedDigit())
-                .frame(width: 32, alignment: .trailing)
+                .font(Theme.digits)
+                .frame(width: Theme.pictureValue, alignment: .trailing)
         }
     }
 }

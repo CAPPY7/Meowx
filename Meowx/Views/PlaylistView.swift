@@ -10,14 +10,14 @@ struct PlaylistView: View {
             List {
                 ForEach(model.playlist.items) { item in
                     Button { model.play(id: item.id) } label: {
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Theme.s4) {
                             Text(item.title)
-                                .font(.callout.weight(item.id == model.playlist.current?.id ? .semibold : .regular))
+                                .font(item.id == model.playlist.current?.id ? Theme.bodyStrong : Theme.body)
                                 .lineLimit(2)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Theme.primary)
                             Text(item.isNetwork ? (item.url.host ?? item.url.absoluteString) : item.url.path)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(Theme.caption)
+                                .foregroundStyle(Theme.secondary)
                                 .lineLimit(1)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -45,12 +45,12 @@ struct PlaylistView: View {
                 Button { model.openFiles(playNow: false) } label: { Image(systemName: "plus") }
                     .shortcutTip("addToPlaylist", title: "Add to playlist")
                 Button { model.toggleShuffle() } label: { Image(systemName: "shuffle") }
-                    .foregroundStyle(model.playlist.shuffleEnabled ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(model.playlist.shuffleEnabled ? Theme.accent : Theme.secondary)
                     .shortcutTip("shuffle")
                 Button { model.cycleRepeat() } label: {
                     Image(systemName: model.playlist.repeatMode == .one ? "repeat.1" : "repeat")
                 }
-                .foregroundStyle(model.playlist.repeatMode == .off ? Color.secondary : Color.accentColor)
+                .foregroundStyle(model.playlist.repeatMode == .off ? Theme.secondary : Theme.accent)
                 .shortcutTip("repeat", title: "Repeat: \(repeatName)")
                 Spacer()
                 Button { model.savePlaylist() } label: { Image(systemName: "square.and.arrow.down") }
@@ -58,8 +58,8 @@ struct PlaylistView: View {
                     .accessibilityLabel("Save playlist")
                     .disabled(model.playlist.items.isEmpty)
             }
-            .buttonStyle(.borderless)
-            .padding(8)
+            .buttonStyle(MeowxIconButtonStyle())
+            .padding(Theme.s8)
         }
         .navigationTitle("Playlist")
     }
