@@ -9,6 +9,7 @@
 - The control bar is a short capsule: clock, seek, volume, back 10, play, forward 10, tracks, speed, more, and full screen. Loop, picture, chapters, video, screenshot, and the floating window are in More. Double-click the sides of the picture to jump 10 seconds. The middle still full-screens.
 - Nothing loaded shows a home screen: drop zone, Open File, Open URL, Paste Link, continue-watching cards, and recent files. Music uses the album art. A file that will not play shows a card with Show in Finder and Remove, instead of an alert.
 - Settings is a tabbed window. Playback, video, audio, and subtitle changes apply immediately. Shortcuts can be rebound, and a taken key is refused. Update checks and an equalizer are not in this version.
+- Controls show a hover and a pressed state, and a focus ring when you tab to them. The seek bar speaks the time and the chapter. Reduce Motion, Reduce Transparency, and Increase Contrast change the chrome in code. The playhead tick no longer rewrites values that did not change, and only the clock and the seek bar read it. English strings live in a String Catalog. Settings and About follow Dark or Match System.
 
 ## 1.0.8
 

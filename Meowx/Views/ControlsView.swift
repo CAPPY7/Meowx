@@ -25,70 +25,15 @@ struct ControlsView: View {
 
     private var seekRow: some View {
         HStack(spacing: Theme.s8) {
-            if model.opening || model.buffering {
-                ProgressView().controlSize(.small)
-            }
-            Text(TimeFormat.string(model.scrubbing ? model.scrub : model.position))
-                .font(Theme.digits)
-                .frame(width: Theme.timeWidth, alignment: .leading)
+            BufferingMark(model: model)
+            ElapsedClock(model: model)
             SeekBar(model: model, hovering: $seekHover, width: $seekWidth)
-            Button(action: model.toggleTimeReadout) {
-                Text(rightClock)
-                    .font(Theme.digits)
-                    .frame(width: Theme.timeWidth, alignment: .trailing)
-            }
-            .buttonStyle(.plain)
-            .help(model.settings.showRemainingTime ? "Show total length" : "Show time remaining")
-            .accessibilityLabel(model.settings.showRemainingTime ? "Time remaining" : "Total length")
+            RemainingClock(model: model)
         }
         .foregroundStyle(Theme.ink)
         .overlay(alignment: .top) {
-            if model.showThumb {
-                hoverCard
-                    .offset(y: -(Theme.thumbHeight + Theme.s16))
-                    .allowsHitTesting(false)
-            }
+            HoverCard(model: model, width: seekWidth)
         }
-    }
-
-    private var rightClock: String {
-        let seconds = TimeReadout.seconds(
-            position: model.scrubbing ? model.scrub : model.position,
-            duration: model.duration,
-            remaining: model.settings.showRemainingTime
-        )
-        let text = TimeFormat.string(seconds)
-        return model.settings.showRemainingTime ? "−\(text)" : text
-    }
-
-    private var hoverCard: some View {
-        let time = model.thumbTime ?? model.position
-        let index = ChapterNav.index(at: time, chapters: model.chapters)
-        let chapter = model.chapters.first { $0.index == index }
-        return VStack(spacing: Theme.s4) {
-            if let image = model.thumbImage {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: Theme.thumbWidth, height: Theme.thumbHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
-            }
-            Text(TimeFormat.string(time)).font(Theme.digits)
-            if let chapter {
-                Text(ChapterNav.displayTitle(index: chapter.index, title: chapter.title))
-                    .font(Theme.caption)
-                    .lineLimit(1)
-            }
-        }
-        .padding(Theme.s8)
-        .meowxGlass()
-        .offset(x: cardShift)
-    }
-
-    private var cardShift: CGFloat {
-        let duration = max(model.duration, 1)
-        let fraction = min(1, max(0, (model.thumbTime ?? model.position) / duration))
-        return (fraction - 0.5) * seekWidth
     }
 
     private var buttonRow: some View {
@@ -103,7 +48,7 @@ struct ControlsView: View {
             speedButton
             moreMenu
             Button { model.toggleFullscreen() } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }
-                .buttonStyle(MeowxIconButtonStyle())
+                .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
                 .shortcutTip("fullScreen")
         }
         .foregroundStyle(Theme.ink)
@@ -117,13 +62,14 @@ struct ControlsView: View {
                 .frame(width: Theme.playSize, height: Theme.playSize)
                 .background(Theme.accent, in: Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MeowxPlainStyle())
+        .meowxFocusRing()
         .shortcutTip("playPause", title: model.paused ? "Play" : "Pause")
     }
 
     private func jumpButton(_ delta: Double, symbol: String, help: String) -> some View {
         Button { model.seek(by: delta) } label: { Image(systemName: symbol) }
-            .buttonStyle(MeowxIconButtonStyle())
+            .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
             .help(help)
             .accessibilityLabel(help)
             .disabled(model.playlist.current == nil)
@@ -134,7 +80,7 @@ struct ControlsView: View {
             Button { model.toggleMute() } label: {
                 Image(systemName: model.muted || model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
             }
-            .buttonStyle(MeowxIconButtonStyle())
+            .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
             .shortcutTip("mute")
             if volumeOpen {
                 VolumeSlider(model: model)
@@ -149,7 +95,7 @@ struct ControlsView: View {
 
     private var tracksButton: some View {
         Button { tracksOpen = true } label: { Image(systemName: "captions.bubble") }
-            .buttonStyle(MeowxIconButtonStyle())
+            .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
             .help("Audio and subtitles")
             .accessibilityLabel("Audio and subtitles")
             .popover(isPresented: $tracksOpen, arrowEdge: .top) {
@@ -161,10 +107,11 @@ struct ControlsView: View {
         Button { speedOpen = true } label: {
             Text(speedLabel(model.speed)).font(Theme.bodyDigits)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MeowxPlainStyle())
         .padding(.horizontal, Theme.s8)
         .frame(minWidth: Theme.hit, minHeight: Theme.hit)
         .meowxPill()
+        .meowxFocusRing()
         .shortcutTip("speedUp", title: "Speed ([ ] \\)")
         .popover(isPresented: $speedOpen, arrowEdge: .top) {
             SpeedPopover(model: model)
@@ -244,6 +191,102 @@ struct ControlsView: View {
     }
 }
 
+private struct BufferingMark: View {
+    var model: PlayerModel
+
+    var body: some View {
+        if model.opening || model.buffering {
+            ProgressView()
+                .controlSize(.small)
+                .accessibilityLabel("Buffering")
+        }
+    }
+}
+
+private struct ElapsedClock: View {
+    var model: PlayerModel
+
+    var body: some View {
+        let shown = model.scrubbing ? model.scrub : model.position
+        Text(TimeFormat.string(shown))
+            .font(Theme.digits)
+            .frame(width: Theme.timeWidth, alignment: .leading)
+            .accessibilityLabel("Elapsed")
+            .accessibilityValue(TimeFormat.string(shown))
+    }
+}
+
+private struct RemainingClock: View {
+    var model: PlayerModel
+
+    var body: some View {
+        Button(action: model.toggleTimeReadout) {
+            Text(text)
+                .font(Theme.digits)
+                .frame(width: Theme.timeWidth, alignment: .trailing)
+        }
+        .buttonStyle(MeowxPlainStyle())
+        .meowxFocusRing()
+        .help(model.settings.showRemainingTime ? "Show total length" : "Show time remaining")
+        .accessibilityLabel(model.settings.showRemainingTime ? "Time remaining" : "Total length")
+        .accessibilityValue(text)
+    }
+
+    private var text: String {
+        let seconds = TimeReadout.seconds(
+            position: model.scrubbing ? model.scrub : model.position,
+            duration: model.duration,
+            remaining: model.settings.showRemainingTime
+        )
+        let shown = TimeFormat.string(seconds)
+        return model.settings.showRemainingTime ? "−\(shown)" : shown
+    }
+}
+
+private struct HoverCard: View {
+    var model: PlayerModel
+    var width: CGFloat
+
+    var body: some View {
+        if model.showThumb {
+            card
+                .offset(y: -(Theme.thumbHeight + Theme.s16))
+                .offset(x: shift)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var card: some View {
+        let time = model.thumbTime ?? model.position
+        let index = ChapterNav.index(at: time, chapters: model.chapters)
+        let chapter = model.chapters.first { $0.index == index }
+        return VStack(spacing: Theme.s4) {
+            if let image = model.thumbImage {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: Theme.thumbWidth, height: Theme.thumbHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
+            }
+            Text(TimeFormat.string(time)).font(Theme.digits)
+            if let chapter {
+                Text(ChapterNav.displayTitle(index: chapter.index, title: chapter.title))
+                    .font(Theme.caption)
+                    .lineLimit(1)
+            }
+        }
+        .padding(Theme.s8)
+        .meowxGlass()
+        .accessibilityElement(children: .combine)
+    }
+
+    private var shift: CGFloat {
+        let duration = max(model.duration, 1)
+        let fraction = min(1, max(0, (model.thumbTime ?? model.position) / duration))
+        return (fraction - 0.5) * width
+    }
+}
+
 private struct SeekBar: View {
     var model: PlayerModel
     @Binding var hovering: Bool
@@ -318,6 +361,24 @@ private struct SeekBar: View {
         }
         .frame(height: Theme.s16)
         .shortcutTip("seekBar")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Playback position")
+        .accessibilityValue(spoken)
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: model.seek(by: model.settings.seekShort)
+            case .decrement: model.seek(by: -model.settings.seekShort)
+            default: break
+            }
+        }
+    }
+
+    private var spoken: String {
+        let time = model.scrubbing ? model.scrub : model.position
+        let index = ChapterNav.index(at: time, chapters: model.chapters)
+        let chapter = model.chapters.first { $0.index == index }
+        let title = chapter.map { ChapterNav.displayTitle(index: $0.index, title: $0.title) }
+        return SeekAccess.value(position: time, duration: model.duration, chapterTitle: title)
     }
 }
 
@@ -356,11 +417,21 @@ private struct VolumeSlider: View {
             })
         }
         .frame(height: Theme.s16)
+        .accessibilityLabel("Volume")
+        .accessibilityValue("\(Int((model.muted ? 0 : model.volume).rounded())) percent")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: model.nudgeVolume(5)
+            case .decrement: model.nudgeVolume(-5)
+            default: break
+            }
+        }
     }
 }
 
 private struct TracksPopover: View {
     var model: PlayerModel
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.s12) {
@@ -389,6 +460,8 @@ private struct TracksPopover: View {
         }
         .padding(Theme.s16)
         .frame(width: Theme.playlistWidth)
+        .focusSection()
+        .onExitCommand { dismiss() }
     }
 
     private func trackRow(_ track: MediaTrack, on: Bool, action: @escaping () -> Void) -> some View {
@@ -410,7 +483,10 @@ private struct TracksPopover: View {
                 Spacer(minLength: 0)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MeowxPlainStyle())
+        .meowxFocusRing()
+        .accessibilityLabel(on ? "\(title), selected" : title)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private func detail(_ track: MediaTrack) -> String {
@@ -420,6 +496,7 @@ private struct TracksPopover: View {
 
 private struct SpeedPopover: View {
     var model: PlayerModel
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.s12) {
@@ -427,17 +504,24 @@ private struct SpeedPopover: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: Theme.hit * 2), spacing: Theme.s8)], spacing: Theme.s8) {
                 ForEach(SpeedPresets.values, id: \.self) { speed in
                     Button(label(speed)) { model.setSpeed(speed) }
-                        .buttonStyle(.plain)
+                        .buttonStyle(MeowxPlainStyle())
+                        .meowxFocusRing()
                         .frame(maxWidth: .infinity, minHeight: Theme.hit)
                         .foregroundStyle(abs(model.speed - speed) < 0.02 ? Theme.ink : Theme.primary)
                         .background(abs(model.speed - speed) < 0.02 ? Theme.accent : Theme.inkFaint, in: Capsule())
+                        .accessibilityLabel("Speed \(label(speed))")
+                        .accessibilityAddTraits(abs(model.speed - speed) < 0.02 ? .isSelected : [])
                 }
             }
             Slider(value: Binding(get: { model.speed }, set: { model.setSpeed($0) }), in: 0.25...4)
+                .accessibilityLabel("Speed")
+                .accessibilityValue(label(model.speed))
             Text(label(model.speed)).font(Theme.digits).foregroundStyle(Theme.secondary)
         }
         .padding(Theme.s16)
         .frame(width: Theme.pictureWidth)
+        .focusSection()
+        .onExitCommand { dismiss() }
     }
 
     private func label(_ speed: Double) -> String {
@@ -484,7 +568,7 @@ struct PicturePanel: View {
                     .help("Reset brightness, contrast, saturation, gamma, and hue")
                     .meowxHit()
                 Button { model.closePicturePanel() } label: { Image(systemName: "xmark") }
-                    .buttonStyle(MeowxIconButtonStyle())
+                    .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
                     .help("Close picture adjustments")
                     .accessibilityLabel("Close picture adjustments")
             }
@@ -505,6 +589,8 @@ struct PicturePanel: View {
                 .font(Theme.caption)
                 .frame(width: Theme.pictureLabel, alignment: .leading)
             Slider(value: Binding(get: { value }, set: set), in: -100...100)
+                .accessibilityLabel(title)
+                .accessibilityValue("\(Int(value.rounded()))")
             Text("\(Int(value.rounded()))")
                 .font(Theme.digits)
                 .frame(width: Theme.pictureValue, alignment: .trailing)

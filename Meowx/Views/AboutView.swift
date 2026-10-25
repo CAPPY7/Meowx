@@ -1,6 +1,9 @@
+import AppKit
 import SwiftUI
 
 struct AboutView: View {
+    @State private var model = PlayerModel.shared
+
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     }
@@ -10,8 +13,10 @@ struct AboutView: View {
             MeowxMark(side: Theme.mark)
                 .foregroundStyle(Theme.primary)
                 .padding(.top, Theme.s8)
+                .accessibilityLabel("Meowx")
             Text("Meowx")
                 .font(Theme.title)
+                .foregroundStyle(Theme.primary)
             Text(version.isEmpty ? "Version unknown" : "Version \(version)")
                 .font(Theme.body)
                 .foregroundStyle(Theme.secondary)
@@ -28,6 +33,8 @@ struct AboutView: View {
         }
         .padding(Theme.s24)
         .frame(width: Theme.sheetNarrow)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .preferredColorScheme(model.settings.appearance == .dark ? .dark : nil)
     }
 
     private static let github = URL(string: "https://github.com/Cappy7/Meowx")!

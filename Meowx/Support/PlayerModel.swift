@@ -1207,7 +1207,11 @@ final class PlayerModel {
         SettingsStore.save(copy)
     }
 
+    private var cursorHiddenAt: Date?
+
     func poke() {
+        if CursorChrome.shouldIgnoreActivity(hiddenAt: cursorHiddenAt, now: Date()) { return }
+        cursorHiddenAt = nil
         lastPoke = Date()
         if !chromeShown {
             uiLog.info("activity revealed chrome")
@@ -1249,7 +1253,10 @@ final class PlayerModel {
         chromeShown = shown
         uiLog.info("chrome \(shown ? "show" : "hide", privacy: .public) reason \(reason, privacy: .public)")
         if !shown {
+            cursorHiddenAt = Date()
             NSCursor.setHiddenUntilMouseMoves(true)
+        } else {
+            cursorHiddenAt = nil
         }
     }
 
@@ -1304,30 +1311,33 @@ final class PlayerModel {
     private func tick() {
         guard let engine, playlist.current != nil else { return }
         let snap = engine.snapshot()
-        if !scrubbing { position = snap.position }
-        if snap.duration > 0 { duration = snap.duration }
-        volume = snap.volume
-        muted = snap.muted
-        speed = snap.speed
-        hwdec = snap.hwdec
-        videoWidth = snap.width
-        videoHeight = snap.height
-        fps = snap.fps
-        droppedFrames = snap.droppedFrames
-        videoCodec = snap.videoCodec
-        audioCodec = snap.audioCodec
-        videoBitrate = snap.videoBitrate
-        videoGamma = snap.gamma
-        videoPrimaries = snap.primaries
-        cacheSeconds = snap.cacheSeconds
+        if !scrubbing, TickGate.shouldWrite(position, snap.position, epsilon: 0.04) { position = snap.position }
+        if snap.duration > 0, TickGate.shouldWrite(duration, snap.duration, epsilon: 0.05) { duration = snap.duration }
+        if TickGate.shouldWrite(volume, snap.volume, epsilon: 0.4) { volume = snap.volume }
+        if TickGate.shouldWrite(muted, snap.muted) { muted = snap.muted }
+        if TickGate.shouldWrite(speed, snap.speed, epsilon: 0.001) { speed = snap.speed }
+        if TickGate.shouldWrite(hwdec, snap.hwdec) { hwdec = snap.hwdec }
+        if TickGate.shouldWrite(videoWidth, snap.width) { videoWidth = snap.width }
+        if TickGate.shouldWrite(videoHeight, snap.height) { videoHeight = snap.height }
+        if TickGate.shouldWrite(fps, snap.fps, epsilon: 0.5) { fps = snap.fps }
+        if TickGate.shouldWrite(droppedFrames, snap.droppedFrames) { droppedFrames = snap.droppedFrames }
+        if TickGate.shouldWrite(videoCodec, snap.videoCodec) { videoCodec = snap.videoCodec }
+        if TickGate.shouldWrite(audioCodec, snap.audioCodec) { audioCodec = snap.audioCodec }
+        if TickGate.shouldWrite(videoBitrate, snap.videoBitrate, epsilon: 50_000) { videoBitrate = snap.videoBitrate }
+        if TickGate.shouldWrite(videoGamma, snap.gamma) { videoGamma = snap.gamma }
+        if TickGate.shouldWrite(videoPrimaries, snap.primaries) { videoPrimaries = snap.primaries }
+        if TickGate.shouldWrite(cacheSeconds, snap.cacheSeconds, epsilon: 0.2) { cacheSeconds = snap.cacheSeconds }
         if videoWidth > 0, videoHeight > 0, (videoWidth, videoHeight) != cropFrame {
             cropFrame = (videoWidth, videoHeight)
             if !cropPreset.isEmpty { applyVideoAdjustments() }
         }
-        chapterIndex = ChapterNav.index(at: position, chapters: chapters)
+        let chapter = ChapterNav.index(at: position, chapters: chapters)
+        if TickGate.shouldWrite(chapterIndex, chapter) { chapterIndex = chapter }
         if tickCount % 5 == 0 { refreshChapters() }
-        audioTrackID = engine.intProp("aid") ?? audioTrackID
-        subtitleTrackID = engine.intProp("sid") ?? subtitleTrackID
+        let aid = engine.intProp("aid") ?? audioTrackID
+        let sid = engine.intProp("sid") ?? subtitleTrackID
+        if TickGate.shouldWrite(audioTrackID, aid) { audioTrackID = aid }
+        if TickGate.shouldWrite(subtitleTrackID, sid) { subtitleTrackID = sid }
         tickCount += 1
         if !opening {
             endGate.noteProgress(position: position, duration: duration)

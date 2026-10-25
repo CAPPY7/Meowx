@@ -236,6 +236,10 @@ struct AudioStage: View {
         .allowsHitTesting(false)
     }
 
+    @ViewBuilder private var lyric: some View {
+        NowLyric(model: model)
+    }
+
     @ViewBuilder private var cover: some View {
         if let artwork = model.artwork {
             Image(nsImage: artwork)
@@ -255,14 +259,20 @@ struct AudioStage: View {
                 }
         }
     }
+}
 
-    @ViewBuilder private var lyric: some View {
+private struct NowLyric: View {
+    var model: PlayerModel
+
+    var body: some View {
         if let line = LyricsFile.current(at: model.position, lines: model.lyrics) {
             Text(line)
                 .font(Theme.body)
                 .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: Theme.copyWidth)
+                .accessibilityLabel("Lyric")
+                .accessibilityValue(line)
         } else if !model.lyricPlain.isEmpty {
             Text(model.lyricPlain)
                 .font(Theme.body)
@@ -270,6 +280,7 @@ struct AudioStage: View {
                 .multilineTextAlignment(.center)
                 .lineLimit(4)
                 .frame(maxWidth: Theme.copyWidth)
+                .accessibilityLabel("Lyrics")
         }
     }
 }

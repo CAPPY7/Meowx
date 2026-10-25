@@ -95,7 +95,7 @@ struct ContentView: View {
                 .offset(x: playlistDrawn ? 0 : Theme.playlistWidth + Theme.s16)
                 .opacity(playlistDrawn ? 1 : 0)
                 .allowsHitTesting(playlistDrawn)
-                .animation(Theme.spring(reduceMotion), value: playlistDrawn)
+                .animation(Theme.fade(reduceMotion), value: playlistDrawn)
                 .onHover { hovering in
                     model.playlistHovered = hovering
                 }
@@ -134,7 +134,7 @@ struct ContentView: View {
                     .shortcutTip("openURL")
                 moreMenu
             }
-            .buttonStyle(MeowxIconButtonStyle())
+            .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
             .foregroundStyle(Theme.ink)
         }
         .padding(.horizontal, Theme.s16)

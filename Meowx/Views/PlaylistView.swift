@@ -66,7 +66,7 @@ struct PlaylistView: View {
                     .accessibilityLabel("Save playlist")
                     .disabled(model.playlist.items.isEmpty)
             }
-            .buttonStyle(MeowxIconButtonStyle())
+            .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
         }
         .padding(Theme.s12)
         .onExitCommand { model.setPlaylistOpen(false) }
