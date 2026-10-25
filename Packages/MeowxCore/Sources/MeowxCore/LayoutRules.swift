@@ -68,6 +68,69 @@ public enum SpeedPresets {
     public static let values: [Double] = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
 }
 
+public enum PasteLink {
+    /// A clipboard string that is a link or a local path. Plain words are not turned into a URL.
+    public static func url(from text: String) -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.contains(where: \.isNewline) else { return nil }
+        if trimmed.hasPrefix("/") || trimmed.hasPrefix("~") {
+            return URL(fileURLWithPath: (trimmed as NSString).expandingTildeInPath)
+        }
+        guard let url = URL(string: trimmed), let scheme = url.scheme?.lowercased() else { return nil }
+        switch scheme {
+        case "http", "https", "file", "rtmp", "rtsp":
+            return url
+        default:
+            return nil
+        }
+    }
+}
+
+public struct LyricLine: Equatable, Sendable {
+    public var time: Double
+    public var text: String
+
+    public init(time: Double, text: String) {
+        self.time = time
+        self.text = text
+    }
+}
+
+public enum LyricsFile {
+    public static func parse(_ text: String) -> [LyricLine] {
+        var lines: [LyricLine] = []
+        for raw in text.split(whereSeparator: \.isNewline) {
+            let line = String(raw).trimmingCharacters(in: .whitespaces)
+            guard line.hasPrefix("["), let close = line.firstIndex(of: "]") else { continue }
+            let stamp = String(line[line.index(after: line.startIndex)..<close])
+            let words = line[line.index(after: close)...].trimmingCharacters(in: .whitespaces)
+            guard let time = time(from: stamp), !words.isEmpty else { continue }
+            lines.append(LyricLine(time: time, text: words))
+        }
+        return lines.sorted { $0.time < $1.time }
+    }
+
+    public static func current(at position: Double, lines: [LyricLine]) -> String? {
+        guard position.isFinite else { return nil }
+        var found: String?
+        for line in lines where line.time <= position + 0.05 {
+            found = line.text
+        }
+        return found
+    }
+
+    private static func time(from stamp: String) -> Double? {
+        let parts = stamp.split(separator: ":")
+        guard parts.count == 2 || parts.count == 3 else { return nil }
+        let numbers = parts.map { Double($0) }
+        guard numbers.allSatisfy({ $0 != nil }) else { return nil }
+        if parts.count == 2 {
+            return (numbers[0] ?? 0) * 60 + (numbers[1] ?? 0)
+        }
+        return (numbers[0] ?? 0) * 3600 + (numbers[1] ?? 0) * 60 + (numbers[2] ?? 0)
+    }
+}
+
 public enum ThumbnailCache {
     public static func key(path: String, fileSize: Int) -> String {
         var hash: UInt64 = 14695981039346656037

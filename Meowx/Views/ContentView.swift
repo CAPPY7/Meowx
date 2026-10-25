@@ -26,11 +26,6 @@ struct ContentView: View {
         .sheet(isPresented: $model.timePrompt) { TimeSheet(model: model) }
         .sheet(isPresented: $model.shortcutPrompt) { ShortcutSheet() }
         .sheet(isPresented: $model.searchOpen) { SubtitleSearchSheet(model: model) }
-        .alert("Can't play this", isPresented: errorPresented) {
-            Button("OK", role: .cancel) { model.errorMessage = nil }
-        } message: {
-            Text(model.errorMessage ?? "")
-        }
         .alert("Playback engine", isPresented: enginePresented) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -44,15 +39,18 @@ struct ContentView: View {
             VideoHost()
                 .opacity(model.showsVideo ? 1 : 0)
             if model.playlist.current == nil {
-                emptyState
+                HomeView(model: model)
             } else if !model.showsVideo {
-                audioStage.allowsHitTesting(false)
+                AudioStage(model: model)
             }
             if model.statsVisible {
                 StatsOverlay(model: model).allowsHitTesting(false)
             }
-            if model.dropTargeted {
+            if model.dropTargeted, model.playlist.current != nil {
                 dropOverlay
+            }
+            if model.errorMessage != nil {
+                ProblemCard(model: model)
             }
             if let glyph = model.actionGlyph {
                 CenterGlyph(glyph: glyph)
@@ -105,63 +103,6 @@ struct ContentView: View {
         .background(Theme.videoBlack)
         .onContinuousHover { phase in
             if case .active = phase { model.poke() }
-        }
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: Theme.s12) {
-            MeowxMark()
-                .foregroundStyle(Theme.inkSoft)
-            Text("Drop a video, album, or folder")
-                .font(Theme.title)
-                .foregroundStyle(Theme.ink)
-            Text(model.ytdlpPath == nil
-                 ? "Open a file or a stream. Install yt-dlp if you want site links."
-                 : "Open a file, a stream, or a link yt-dlp can read.")
-                .font(Theme.body)
-                .foregroundStyle(Theme.inkSecondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: Theme.copyWidth)
-            Button("Open…") { model.openFiles(playNow: true) }
-                .keyboardShortcut(.defaultAction)
-                .meowxHit()
-        }
-        .padding(Theme.s24)
-    }
-
-    private var audioStage: some View {
-        VStack(spacing: Theme.s16) {
-            artwork
-            Text(model.displayTitle)
-                .font(Theme.title)
-                .foregroundStyle(Theme.ink)
-                .multilineTextAlignment(.center)
-            if !model.artist.isEmpty {
-                Text(model.artist)
-                    .font(Theme.body)
-                    .foregroundStyle(Theme.inkSecondary)
-            }
-        }
-        .padding(Theme.s32)
-    }
-
-    @ViewBuilder private var artwork: some View {
-        if let artwork = model.artwork {
-            Image(nsImage: artwork)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(maxWidth: Theme.artwork, maxHeight: Theme.artwork)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
-        } else {
-            RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous)
-                .fill(Theme.inkFaint)
-                .frame(width: Theme.placeholderArt, height: Theme.placeholderArt)
-                .overlay {
-                    Image(systemName: "music.note")
-                        .font(Theme.symbol)
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(Theme.inkSoft)
-                }
         }
     }
 
@@ -263,10 +204,6 @@ struct ContentView: View {
             }
             .padding(Theme.s16)
             .allowsHitTesting(false)
-    }
-
-    private var errorPresented: Binding<Bool> {
-        Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })
     }
 
     private var enginePresented: Binding<Bool> {

@@ -78,6 +78,8 @@ enum Theme {
     static let playSize: CGFloat = 44
     static let seekRest: CGFloat = 6
     static let seekHover: CGFloat = 10
+    static let borderSweep: Double = 1.2
+    static let cardWidth: CGFloat = 168
 
     static func fade(_ reduceMotion: Bool) -> Animation? {
         let duration = DesignTokens.duration(DesignTokens.fade, reduceMotion: reduceMotion)

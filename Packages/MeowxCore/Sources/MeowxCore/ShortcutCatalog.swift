@@ -93,6 +93,7 @@ public struct ShortcutCommand: Equatable, Sendable, Identifiable {
         case "bracketleft": return "["
         case "bracketright": return "]"
         case "backslash": return "\\"
+        case "slash": return "/"
         case "comma": return ","
         case "period": return "."
         default: return token.uppercased()
@@ -164,8 +165,10 @@ public enum ShortcutCatalog {
         ShortcutCommand(id: "windowDouble", title: "Window 200%", group: "Window", token: "3", command: true),
         ShortcutCommand(id: "windowFit", title: "Fit window to screen", group: "Window", token: "0", command: true),
         ShortcutCommand(id: "stats", title: "Stats", group: "Window", token: "i"),
+        ShortcutCommand(id: "shortcuts", title: "Keyboard shortcuts", group: "Window", token: "slash", shift: true),
         ShortcutCommand(id: "open", title: "Open", group: "File", token: "o", command: true),
         ShortcutCommand(id: "openURL", title: "Open URL", group: "File", token: "u", command: true),
+        ShortcutCommand(id: "pasteLink", title: "Paste link", group: "File", token: "v", command: true),
         ShortcutCommand(id: "addToPlaylist", title: "Add to playlist", group: "File", token: "o", command: true, shift: true),
         ShortcutCommand(id: "showPlaylist", title: "Show playlist", group: "Window"),
         ShortcutCommand(id: "shuffle", title: "Shuffle", group: "Playback"),

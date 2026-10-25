@@ -45,6 +45,57 @@ public final class ResumeStore: @unchecked Sendable {
         return duration
     }
 
+    public struct Card: Equatable, Sendable, Identifiable {
+        public var key: String
+        public var position: Double
+        public var duration: Double
+        public var updatedAt: Date
+
+        public var id: String { key }
+        public var url: URL? { ResumeStore.url(for: key) }
+        public var title: String { ResumeStore.title(for: key) }
+        public var remaining: Double { max(0, duration - position) }
+        public var fraction: Double {
+            guard duration > 0 else { return 0 }
+            return min(1, max(0, position / duration))
+        }
+
+        public init(key: String, position: Double, duration: Double, updatedAt: Date) {
+            self.key = key
+            self.position = position
+            self.duration = duration
+            self.updatedAt = updatedAt
+        }
+    }
+
+    public static func url(for key: String) -> URL? {
+        if key.hasPrefix("file:") {
+            let body = key.dropFirst("file:".count)
+            guard let hash = body.lastIndex(of: "#") else {
+                let path = String(body)
+                return path.isEmpty ? nil : URL(fileURLWithPath: path)
+            }
+            let path = String(body[..<hash])
+            return path.isEmpty ? nil : URL(fileURLWithPath: path)
+        }
+        return URL(string: key)
+    }
+
+    public static func title(for key: String) -> String {
+        guard let url = url(for: key) else { return key }
+        let name = url.lastPathComponent
+        return name.isEmpty ? url.absoluteString : name
+    }
+
+    public func latest(limit: Int) -> [Card] {
+        lock.lock()
+        let cards = entries.map { key, entry in
+            Card(key: key, position: entry.position, duration: entry.duration, updatedAt: entry.updatedAt)
+        }
+        lock.unlock()
+        return cards.sorted { $0.updatedAt > $1.updatedAt }.prefix(max(0, limit)).map { $0 }
+    }
+
     public func fraction(for key: String) -> Double? {
         lock.lock()
         defer { lock.unlock() }

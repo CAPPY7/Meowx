@@ -67,6 +67,9 @@ final class PlayerModel {
     var opening = false
     var showsVideo = true
     var artist = ""
+    var album = ""
+    var lyrics: [LyricLine] = []
+    var lyricPlain = ""
     var mediaTitle = ""
     var artwork: NSImage?
     var tracks: [MediaTrack] = []
@@ -121,6 +124,9 @@ final class PlayerModel {
     var shortcutPrompt = false
     var searchOpen = false
     var errorMessage: String?
+    var errorTitle = "Can't play this"
+    var errorURL: URL?
+    var errorItemID: UUID?
     var statusText: String?
     var statusProgress: Double?
     var statusMark: StatusMark = .generic
@@ -272,8 +278,7 @@ final class PlayerModel {
                     subtitles.append(item.url)
                 } else if !MediaFiles.isJunk(item.url) {
                     if let problem = rejected(item.url) {
-                        errorMessage = problem
-                        evaluateChrome(reason: "error")
+                        reportProblem(problem, title: "Can't play this", url: item.url)
                         continue
                     }
                     media.append(item)
@@ -333,6 +338,33 @@ final class PlayerModel {
         }
         add(urls: [url], playNow: true)
         urlPrompt = false
+    }
+
+    func pasteLink() {
+        let text = NSPasteboard.general.string(forType: .string) ?? ""
+        guard let url = PasteLink.url(from: text) else {
+            reportProblem("The clipboard doesn't have a link or a file path.", title: "No link")
+            return
+        }
+        add(urls: [url], playNow: true)
+    }
+
+    func continueWatching() -> [ResumeStore.Card] {
+        resume.latest(limit: 6)
+    }
+
+    func reportProblem(_ message: String, title: String = "Can't play this", url: URL? = nil, itemID: UUID? = nil) {
+        errorMessage = message
+        errorTitle = title
+        errorURL = url
+        errorItemID = itemID
+        evaluateChrome(reason: "error")
+    }
+
+    func dismissProblem() {
+        errorMessage = nil
+        errorURL = nil
+        errorItemID = nil
     }
 
     func play(id: UUID) {
@@ -403,6 +435,9 @@ final class PlayerModel {
             showStatus("Meowx is the default player for video and audio")
         } else {
             errorMessage = "macOS did not accept Meowx as the default player. \(failures.joined(separator: " "))"
+            errorTitle = "Not the default player"
+            errorURL = nil
+            errorItemID = nil
         }
     }
 
@@ -758,6 +793,8 @@ final class PlayerModel {
         case "stats": toggleStats()
         case "open": openFiles(playNow: true)
         case "openURL": urlPrompt = true
+        case "pasteLink": pasteLink()
+        case "shortcuts": shortcutPrompt = true
         case "addToPlaylist": openFiles(playNow: false)
         case "showPlaylist": togglePlaylist()
         case "seekStart": seekToStart()
@@ -1069,6 +1106,9 @@ final class PlayerModel {
             flashStatus("Saved \(url.lastPathComponent)")
         } else {
             errorMessage = "Couldn't save the screenshot."
+            errorTitle = "Couldn't save the screenshot"
+            errorURL = nil
+            errorItemID = nil
         }
     }
 
@@ -1160,7 +1200,11 @@ final class PlayerModel {
         buffering = false
         artwork = nil
         artist = ""
+        album = ""
+        lyrics = []
+        lyricPlain = ""
         mediaTitle = ""
+        dismissProblem()
         tracks = []
         loopA = nil
         loopB = nil
@@ -1255,6 +1299,30 @@ final class PlayerModel {
             ?? engine?.stringProp("metadata/by-key/artist")
             ?? engine?.stringProp("metadata/by-key/ARTIST")
             ?? ""
+        album = engine?.stringProp("metadata/by-key/Album")
+            ?? engine?.stringProp("metadata/by-key/album")
+            ?? engine?.stringProp("metadata/by-key/ALBUM")
+            ?? ""
+        loadLyrics()
+    }
+
+    private func loadLyrics() {
+        lyrics = []
+        lyricPlain = ""
+        let embedded = engine?.stringProp("metadata/by-key/LYRICS")
+            ?? engine?.stringProp("metadata/by-key/lyrics")
+            ?? engine?.stringProp("metadata/by-key/Lyrics")
+            ?? ""
+        if !embedded.isEmpty {
+            let parsed = LyricsFile.parse(embedded)
+            if parsed.isEmpty { lyricPlain = embedded } else { lyrics = parsed }
+        }
+        if lyrics.isEmpty, lyricPlain.isEmpty, let url = playlist.current?.url, url.isFileURL {
+            let sidecar = url.deletingPathExtension().appendingPathExtension("lrc")
+            if let text = try? String(contentsOf: sidecar, encoding: .utf8) {
+                lyrics = LyricsFile.parse(text)
+            }
+        }
     }
 
     private func loadArtworkIfNeeded() {
@@ -1335,6 +1403,10 @@ final class PlayerModel {
         duration = 0
         paused = true
         artwork = nil
+        artist = ""
+        album = ""
+        lyrics = []
+        lyricPlain = ""
         tracks = []
         chapters = []
         chapterIndex = -1
@@ -1486,6 +1558,9 @@ extension PlayerModel: EngineDelegate {
             opening = false
             buffering = false
             errorMessage = "Couldn't play this file. \(message)"
+            errorTitle = "Can't play this"
+            errorURL = playlist.current?.url
+            errorItemID = playlist.current?.id
             evaluateChrome(reason: "error")
         case .eof:
             guard endGate.consume(reached: true) else { return }
