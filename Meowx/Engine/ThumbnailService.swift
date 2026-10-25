@@ -10,6 +10,7 @@ final class ThumbnailService {
         var path: String
         var time: Double
         var hover: Bool
+        var cacheKey: String
         var completion: (NSImage?) -> Void
     }
 
@@ -17,6 +18,7 @@ final class ThumbnailService {
     private let lock = NSLock()
     private var jobs: [Job] = []
     private var memory: [String: NSImage] = [:]
+    private var frames: [String: NSImage] = [:]
     private var pumping = false
     private var unavailable = false
     private var mpv: OpaquePointer?
@@ -34,14 +36,20 @@ final class ThumbnailService {
             DispatchQueue.main.async { completion(nil) }
             return
         }
+        let cacheKey = ThumbnailCache.frameKey(path: path, time: time)
         lock.lock()
+        if let image = frames[cacheKey] {
+            lock.unlock()
+            DispatchQueue.main.async { completion(image) }
+            return
+        }
         if unavailable {
             lock.unlock()
             DispatchQueue.main.async { completion(nil) }
             return
         }
         jobs.removeAll { $0.hover }
-        jobs.insert(Job(path: path, time: time, hover: true, completion: completion), at: 0)
+        jobs.insert(Job(path: path, time: time, hover: true, cacheKey: cacheKey, completion: completion), at: 0)
         let start = !pumping
         if start { pumping = true }
         lock.unlock()
@@ -94,7 +102,7 @@ final class ThumbnailService {
             DispatchQueue.main.async { completion(nil) }
             return
         }
-        jobs.append(Job(path: path, time: time, hover: false, completion: completion))
+        jobs.append(Job(path: path, time: time, hover: false, cacheKey: ThumbnailCache.frameKey(path: path, time: time), completion: completion))
         let start = !pumping
         if start { pumping = true }
         lock.unlock()
@@ -127,7 +135,8 @@ final class ThumbnailService {
             }
             lock.unlock()
             guard let job else { return }
-            let data = renderThumbnail(path: job.path, time: job.time)
+            let stale = job.hover && newerHoverWaiting()
+            let data = stale ? nil : renderThumbnail(path: job.path, time: job.time)
             if mpv == nil {
                 lock.lock()
                 unavailable = true
@@ -135,10 +144,25 @@ final class ThumbnailService {
             }
             let width = self.width
             let height = self.height
-            DispatchQueue.main.async {
-                job.completion(data.flatMap { Self.image(from: $0, width: width, height: height) })
+            let cacheKey = job.cacheKey
+            DispatchQueue.main.async { [weak self] in
+                let image = data.flatMap { Self.image(from: $0, width: width, height: height) }
+                if let self, let image {
+                    self.lock.lock()
+                    self.frames[cacheKey] = image
+                    if self.frames.count > 80 { self.frames.removeAll() }
+                    self.lock.unlock()
+                }
+                job.completion(image)
             }
         }
+    }
+
+    private func newerHoverWaiting() -> Bool {
+        lock.lock()
+        let waiting = jobs.contains { $0.hover }
+        lock.unlock()
+        return waiting
     }
 
     private func ensureEngine() -> Bool {
@@ -155,14 +179,15 @@ final class ThumbnailService {
         self.texture = texture
         guard let mpv = mpv_create() else { return false }
         mpv_set_option_string(mpv, "vo", "libmpv")
-        mpv_set_option_string(mpv, "hwdec", "no")
+        mpv_set_option_string(mpv, "hwdec", "auto")
+        mpv_set_option_string(mpv, "vd-lavc-threads", "2")
         mpv_set_option_string(mpv, "ao", "null")
         mpv_set_option_string(mpv, "audio", "no")
         mpv_set_option_string(mpv, "mute", "yes")
         mpv_set_option_string(mpv, "pause", "yes")
         mpv_set_option_string(mpv, "idle", "yes")
         mpv_set_option_string(mpv, "keep-open", "yes")
-        mpv_set_option_string(mpv, "hr-seek", "yes")
+        mpv_set_option_string(mpv, "hr-seek", "no")
         mpv_set_option_string(mpv, "osc", "no")
         mpv_set_option_string(mpv, "ytdl", "no")
         mpv_set_option_string(mpv, "config", "no")
@@ -216,9 +241,7 @@ final class ThumbnailService {
 
     private func renderThumbnail(path: String, time: Double) -> Data? {
         guard let mpv, let render, let glContext else { return nil }
-        meowx_gl_lock()
-        defer { meowx_gl_unlock() }
-        meowx_cgl_set_current(glContext)
+        if newerHoverWaiting() { return nil }
         if loadedPath != path {
             let joined = ["loadfile", path, "replace"].joined(separator: "\u{1f}")
             guard meowx_command_sep(mpv, joined) >= 0, wait(mpv, for: MPV_EVENT_FILE_LOADED, timeout: 4) else {
@@ -226,14 +249,17 @@ final class ThumbnailService {
             }
             loadedPath = path
         }
-        let seek = ["seek", String(format: "%.3f", max(0, time)), "absolute+exact"].joined(separator: "\u{1f}")
+        if newerHoverWaiting() { return nil }
+        let seek = ["seek", String(format: "%.3f", max(0, time)), "absolute+keyframes"].joined(separator: "\u{1f}")
         _ = meowx_command_sep(mpv, seek)
-        _ = waitForSeek(mpv, timeout: 1.5)
-        for _ in 0..<4 {
-            _ = mpv_render_context_update(render)
-            meowx_gl_render_fbo(render, fbo, Int32(width), Int32(height), 0)
-            mpv_render_context_report_swap(render)
-        }
+        _ = waitForSeek(mpv, timeout: 0.8)
+        if newerHoverWaiting() { return nil }
+        meowx_gl_lock()
+        defer { meowx_gl_unlock() }
+        meowx_cgl_set_current(glContext)
+        _ = mpv_render_context_update(render)
+        meowx_gl_render_fbo(render, fbo, Int32(width), Int32(height), 0)
+        mpv_render_context_report_swap(render)
         var bytes = [UInt8](repeating: 0, count: width * height * 4)
         bytes.withUnsafeMutableBytes { raw in
             guard let base = raw.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
@@ -283,9 +309,9 @@ final class ThumbnailService {
             guard let base = raw.baseAddress else { return }
             plane.assign(from: base.assumingMemoryBound(to: UInt8.self), count: width * height * 4)
         }
-        let image = NSImage(size: NSSize(width: width, height: height))
-        image.addRepresentation(rep)
-        return image
+        var proposed = NSRect(x: 0, y: 0, width: width, height: height)
+        guard let cg = rep.cgImage(forProposedRect: &proposed, context: nil, hints: nil) else { return nil }
+        return NSImage(cgImage: cg, size: NSSize(width: width, height: height))
     }
 
     private static var cacheDirectory: URL {

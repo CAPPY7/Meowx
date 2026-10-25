@@ -546,21 +546,19 @@ final class PlayerModel {
         let target = max(0, seconds)
         position = target
         engine?.seekAbsolute(target, exact: exact)
-        poke()
     }
 
     func scrubTo(_ value: Double) {
         scrubbing = true
         scrub = value
-        engine?.seekAbsolute(value, exact: false)
         requestThumb(at: value)
-        poke()
     }
 
     func endScrub() {
         seek(to: scrub, exact: true)
         scrubbing = false
         showThumb = false
+        poke()
     }
 
     func hover(at time: Double) {
@@ -735,7 +733,6 @@ final class PlayerModel {
             let whole = Int(action.seekDelta.rounded())
             flashStatus(whole >= 0 ? "Seek +\(whole) s" : "Seek \(whole) s", mark: action.seekDelta >= 0 ? .seekForward : .seekBack)
         }
-        if action.volumeDelta != 0 || action.seekDelta != 0 { poke() }
     }
 
     func jumpToTime(_ text: String) {
@@ -758,7 +755,6 @@ final class PlayerModel {
 
     func flashStatus(_ text: String, progress: Double? = nil, mark: StatusMark = .generic) {
         showStatus(text, progress: progress, mark: mark)
-        poke()
     }
 
     func flashGlyph(_ glyph: ActionGlyph) {
@@ -1306,7 +1302,7 @@ final class PlayerModel {
     }
 
     func copyDiagnostics() {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.12"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.13"
         let mpv = engine?.stringProp("mpv-version") ?? "unavailable"
         let hardware = hwdec.isEmpty ? (settings.hardwareDecoding ? "videotoolbox requested" : "off") : hwdec
         var lines = [
@@ -1625,7 +1621,7 @@ final class PlayerModel {
             try? await Task.sleep(nanoseconds: 160_000_000)
             guard !Task.isCancelled else { return }
             ThumbnailService.shared.request(path: path, time: time) { [weak self] image in
-                guard let self, self.thumbTime == time else { return }
+                guard let self, self.thumbTime == time, let image else { return }
                 self.thumbImage = image
             }
         }
@@ -1843,7 +1839,7 @@ final class PlayerModel {
 
     func checkForUpdate(manual: Bool) {
         if !manual, !settings.checkForUpdates { return }
-        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.12"
+        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.13"
         Task { [weak self] in
             let found = await Self.latestReleaseTag()
             DispatchQueue.main.async { [weak self] in

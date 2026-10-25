@@ -72,6 +72,8 @@ final class LayoutRulesTests: XCTestCase {
         let first = ThumbnailCache.key(path: "/films/one.mkv", fileSize: 10)
         XCTAssertEqual(first, ThumbnailCache.key(path: "/films/one.mkv", fileSize: 10))
         XCTAssertNotEqual(first, ThumbnailCache.key(path: "/films/one.mkv", fileSize: 11))
+        XCTAssertEqual(ThumbnailCache.frameKey(path: "/films/one.mkv", time: 3.2), ThumbnailCache.frameKey(path: "/films/one.mkv", time: 3.9))
+        XCTAssertNotEqual(ThumbnailCache.frameKey(path: "/films/one.mkv", time: 1), ThumbnailCache.frameKey(path: "/films/one.mkv", time: 4))
         XCTAssertEqual(first.count, 16)
     }
 }

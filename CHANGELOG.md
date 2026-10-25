@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.13
+
+- Volume and seek show only their readout. The control bar stays hidden.
+- Dragging the time bar previews a frame and seeks once, when you let go. It no longer seeks the playing video on every move.
+- Preview frames are decoded on a second player that no longer holds the video's graphics lock while it waits, and a repeated spot is reused. The picture is built so SwiftUI does not draw it upside down.
+
 ## 1.0.12
 
 - The file name shows at the top for 4 seconds when playback starts, then goes away. It is the full file name.

@@ -12,17 +12,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             Self.handle(event) ? nil : event
         }
-        NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .scrollWheel]) { event in
+        NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged]) { event in
             guard event.window != nil else { return event }
-            if event.type == .scrollWheel {
-                PlayerModel.shared.poke()
-            } else {
-                PlayerModel.shared.notePointer(
-                    x: event.locationInWindow.x,
-                    y: event.locationInWindow.y,
-                    dragged: event.type != .mouseMoved
-                )
-            }
+            PlayerModel.shared.notePointer(
+                x: event.locationInWindow.x,
+                y: event.locationInWindow.y,
+                dragged: event.type != .mouseMoved
+            )
             return event
         }
         DispatchQueue.main.async { [weak self] in
