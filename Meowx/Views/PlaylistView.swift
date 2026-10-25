@@ -18,10 +18,18 @@ struct PlaylistView: View {
 
     var body: some View {
         VStack(spacing: Theme.s8) {
-            TextField("Search", text: $query)
-                .textFieldStyle(.roundedBorder)
-                .font(Theme.body)
-                .onExitCommand { model.setPlaylistOpen(false) }
+            HStack(spacing: Theme.s8) {
+                TextField("Search", text: $query)
+                    .textFieldStyle(.roundedBorder)
+                    .font(Theme.body)
+                    .onExitCommand { model.setPlaylistOpen(false) }
+                Button { model.setPlaylistOpen(false) } label: {
+                    Image(systemName: "xmark")
+                }
+                .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
+                .help("Close playlist")
+                .accessibilityLabel("Close playlist")
+            }
             List(selection: $selection) {
                 ForEach(rows) { item in
                     row(item)

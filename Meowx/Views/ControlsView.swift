@@ -7,8 +7,6 @@ struct ControlsView: View {
     @State private var speedOpen = false
     @State private var seekHover = false
     @State private var seekWidth: CGFloat = 1
-    @State private var volumeOpen = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: Theme.s8) {
@@ -37,19 +35,22 @@ struct ControlsView: View {
     }
 
     private var buttonRow: some View {
-        HStack(spacing: Theme.s8) {
-            volume
-            Spacer(minLength: Theme.s4)
-            jumpButton(-model.settings.seekMedium, symbol: "gobackward.10", help: "Back \(Int(model.settings.seekMedium)) seconds")
-            playButton
-            jumpButton(model.settings.seekMedium, symbol: "goforward.10", help: "Forward \(Int(model.settings.seekMedium)) seconds")
-            Spacer(minLength: Theme.s4)
-            tracksButton
-            speedButton
-            moreMenu
-            Button { model.toggleFullscreen() } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }
-                .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
-                .shortcutTip("fullScreen")
+        ZStack {
+            HStack(spacing: Theme.s8) {
+                volume
+                Spacer(minLength: Theme.s4)
+                tracksButton
+                speedButton
+                moreMenu
+                Button { model.toggleFullscreen() } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }
+                    .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
+                    .shortcutTip("fullScreen")
+            }
+            HStack(spacing: Theme.s12) {
+                jumpButton(-model.settings.seekMedium, symbol: "gobackward.10", help: "Back \(Int(model.settings.seekMedium)) seconds")
+                playButton
+                jumpButton(model.settings.seekMedium, symbol: "goforward.10", help: "Forward \(Int(model.settings.seekMedium)) seconds")
+            }
         }
         .foregroundStyle(Theme.ink)
     }
@@ -76,20 +77,15 @@ struct ControlsView: View {
     }
 
     private var volume: some View {
-        HStack(spacing: Theme.s4) {
+        HStack(spacing: Theme.s8) {
             Button { model.toggleMute() } label: {
                 Image(systemName: model.muted || model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
             }
             .buttonStyle(MeowxIconButtonStyle()).meowxFocusRing()
             .shortcutTip("mute")
-            if volumeOpen {
-                VolumeSlider(model: model)
-                    .frame(width: Theme.progressWidth)
-                    .shortcutTip("volumeSlider", title: "Volume (Up/Down, Shift ±10)")
-            }
-        }
-        .onHover { hovering in
-            withAnimation(Theme.fade(reduceMotion)) { volumeOpen = hovering }
+            VolumeSlider(model: model)
+                .frame(width: Theme.volumeWidth)
+                .shortcutTip("volumeSlider", title: "Volume (Up/Down, Shift ±10)")
         }
     }
 

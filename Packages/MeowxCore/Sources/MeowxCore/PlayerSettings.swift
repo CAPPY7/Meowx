@@ -148,7 +148,7 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         scrollSeeks: Bool = true,
         quitWhenWindowCloses: Bool = true,
         resizeToVideoOnOpen: Bool = false,
-        playlistOpen: Bool = true,
+        playlistOpen: Bool = false,
         doubleClickSidesSeek: Bool = true,
         showRemainingTime: Bool = false,
         appearance: AppAppearance = .dark,
@@ -288,7 +288,7 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         case scrollSeeks
         case quitWhenWindowCloses
         case resizeToVideoOnOpen
-        case playlistOpen
+        case playlistOpen = "playlistCardOpen"
         case doubleClickSidesSeek
         case showRemainingTime
         case appearance
@@ -340,7 +340,7 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
             scrollSeeks: try container.decodeIfPresent(Bool.self, forKey: .scrollSeeks) ?? true,
             quitWhenWindowCloses: try container.decodeIfPresent(Bool.self, forKey: .quitWhenWindowCloses) ?? true,
             resizeToVideoOnOpen: try container.decodeIfPresent(Bool.self, forKey: .resizeToVideoOnOpen) ?? false,
-            playlistOpen: try container.decodeIfPresent(Bool.self, forKey: .playlistOpen) ?? true,
+            playlistOpen: try container.decodeIfPresent(Bool.self, forKey: .playlistOpen) ?? false,
             doubleClickSidesSeek: try container.decodeIfPresent(Bool.self, forKey: .doubleClickSidesSeek) ?? true,
             showRemainingTime: try container.decodeIfPresent(Bool.self, forKey: .showRemainingTime) ?? false,
             appearance: try container.decodeIfPresent(AppAppearance.self, forKey: .appearance) ?? .dark,

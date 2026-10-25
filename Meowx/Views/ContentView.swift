@@ -61,20 +61,39 @@ struct ContentView: View {
             }
         }
         .overlay(alignment: .top) {
-            VStack(spacing: Theme.s8) {
-                topBar
-                    .opacity(model.chromeShown ? 1 : 0)
-                    .allowsHitTesting(model.chromeShown)
+            topBar
+                .padding(.trailing, playlistDrawn ? Theme.playlistWidth + Theme.s24 : 0)
+                .opacity(model.chromeShown ? 1 : 0)
+                .allowsHitTesting(model.chromeShown)
+                .animation(Theme.fade(reduceMotion), value: model.chromeShown)
+                .animation(Theme.fade(reduceMotion), value: model.actionGlyph)
+        }
+        .overlay(alignment: .topTrailing) {
+            PlaylistView(model: model, posters: playlistDrawn)
+                .frame(width: Theme.playlistWidth, height: Theme.playlistCard)
+                .meowxSurface(Theme.radiusLarge)
+                .padding(.top, Theme.playlistTop)
+                .padding(.trailing, Theme.s16)
+                .offset(x: playlistDrawn ? 0 : Theme.playlistWidth + Theme.s32)
+                .opacity(playlistDrawn ? 1 : 0)
+                .allowsHitTesting(playlistDrawn)
+                .animation(Theme.fade(reduceMotion), value: playlistDrawn)
+                .onHover { hovering in
+                    model.playlistHovered = hovering
+                }
+        }
+        .overlay(alignment: .bottom) {
+            VStack(spacing: Theme.s12) {
                 if let status = model.statusText {
                     StatusPill(text: status, progress: model.statusProgress, mark: model.statusMark)
                         .allowsHitTesting(false)
                 }
+                controls
+                    .opacity(model.chromeShown ? 1 : 0)
+                    .allowsHitTesting(model.chromeShown)
             }
-            .padding(.top, model.chromeShown ? Theme.s8 : Theme.s24)
-            .allowsHitTesting(model.chromeShown)
             .animation(Theme.fade(reduceMotion), value: model.chromeShown)
             .animation(Theme.fade(reduceMotion), value: model.statusText)
-            .animation(Theme.fade(reduceMotion), value: model.actionGlyph)
         }
         .overlay(alignment: .topLeading) {
             if let offer = model.updateOffer, let url = URL(string: "https://github.com/Cappy7/Meowx/releases/latest") {
@@ -92,31 +111,12 @@ struct ContentView: View {
                 .padding(.leading, model.fullscreen ? Theme.s16 : model.trafficInset + Theme.s16)
             }
         }
-        .overlay(alignment: .bottom) {
-            controls
-                .opacity(model.chromeShown ? 1 : 0)
-                .allowsHitTesting(model.chromeShown)
-                .animation(Theme.fade(reduceMotion), value: model.chromeShown)
-        }
         .overlay(alignment: .topTrailing) {
             if model.pictureOpen {
                 PicturePanel(model: model)
-                    .padding(.top, Theme.pictureInset)
-                    .padding(.trailing, Theme.s16 + (playlistDrawn ? Theme.playlistWidth + Theme.s16 : 0))
+                    .padding(.top, Theme.pictureInset + (playlistDrawn ? Theme.playlistCard + Theme.s8 : 0))
+                    .padding(.trailing, Theme.s16)
             }
-        }
-        .overlay(alignment: .trailing) {
-            PlaylistView(model: model, posters: playlistDrawn)
-                .frame(width: Theme.playlistWidth)
-                .meowxSurface(Theme.radiusLarge)
-                .padding(Theme.s16)
-                .offset(x: playlistDrawn ? 0 : Theme.playlistWidth + Theme.s16)
-                .opacity(playlistDrawn ? 1 : 0)
-                .allowsHitTesting(playlistDrawn)
-                .animation(Theme.fade(reduceMotion), value: playlistDrawn)
-                .onHover { hovering in
-                    model.playlistHovered = hovering
-                }
         }
         .background(Theme.videoBlack)
         .onContinuousHover { phase in

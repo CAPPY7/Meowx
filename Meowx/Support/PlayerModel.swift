@@ -1297,7 +1297,7 @@ final class PlayerModel {
     }
 
     func copyDiagnostics() {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.9"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.10"
         let mpv = engine?.stringProp("mpv-version") ?? "unavailable"
         let hardware = hwdec.isEmpty ? (settings.hardwareDecoding ? "videotoolbox requested" : "off") : hwdec
         var lines = [
@@ -1805,7 +1805,7 @@ final class PlayerModel {
 
     func checkForUpdate(manual: Bool) {
         if !manual, !settings.checkForUpdates { return }
-        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.9"
+        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.10"
         Task { [weak self] in
             let found = await Self.latestReleaseTag()
             DispatchQueue.main.async { [weak self] in

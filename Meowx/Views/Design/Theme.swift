@@ -53,7 +53,7 @@ enum Theme {
     static let artwork: CGFloat = 320
     static let placeholderArt: CGFloat = 220
     static let timeWidth: CGFloat = 64
-    static let volumeWidth: CGFloat = 90
+    static let volumeWidth: CGFloat = 108
     static let thumbWidth: CGFloat = 160
     static let thumbHeight: CGFloat = 90
     static let pictureWidth: CGFloat = 280
@@ -74,6 +74,8 @@ enum Theme {
     static let windowMinWidth: CGFloat = 780
     static let windowMinHeight: CGFloat = 480
     static let playlistWidth: CGFloat = 320
+    static let playlistCard: CGFloat = 300
+    static let playlistTop: CGFloat = 64
     static let pictureInset: CGFloat = 56
     static let barWidth: CGFloat = 760
     static let playSize: CGFloat = 44

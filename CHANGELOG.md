@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.10
+
+- The playlist is a short card at the top right, not a column down the whole picture. It starts closed. Close it with the X or Esc. The top buttons stay beside it.
+- Play, back 10, and forward 10 sit in the middle of the control bar. The volume slider stays next to the speaker, and the volume readout sits above the bar instead of under the playlist.
+
 ## 1.0.9
 
 - New app icon: a white cat head with a play cutout, on a violet-to-indigo gradient. The same glyph is the empty-screen mark and the About window.
