@@ -61,13 +61,23 @@ struct ContentView: View {
             }
         }
         .overlay(alignment: .top) {
-            topBar
-                .padding(.trailing, playlistDrawn ? Theme.playlistWidth + Theme.s24 : 0)
-                .opacity(model.chromeShown ? 1 : 0)
-                .allowsHitTesting(model.chromeShown)
-                .animation(Theme.fade(reduceMotion), value: model.chromeShown)
-                .animation(Theme.fade(reduceMotion), value: model.actionGlyph)
+            if let title = model.openingTitle {
+                Text(title)
+                    .font(Theme.bodyStrong)
+                    .foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .padding(.horizontal, Theme.s16)
+                    .padding(.vertical, Theme.s8)
+                    .meowxPill()
+                    .padding(.top, Theme.s16)
+                    .padding(.horizontal, Theme.s32)
+                    .frame(maxWidth: .infinity)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
         }
+        .animation(Theme.fade(reduceMotion), value: model.openingTitle)
         .overlay(alignment: .topTrailing) {
             PlaylistView(model: model, posters: playlistDrawn)
                 .frame(width: Theme.playlistWidth, height: Theme.playlistCard)
@@ -129,50 +139,6 @@ struct ContentView: View {
                 model.controlsHovered = hovering
                 model.poke()
             }
-    }
-
-    private var topBar: some View {
-        HStack(spacing: Theme.s8) {
-            Theme.clear
-                .frame(width: model.fullscreen ? 0 : model.trafficInset)
-                .accessibilityHidden(true)
-            if model.playlist.current != nil {
-                VStack(alignment: .leading, spacing: Theme.s4) {
-                    Text(model.displayTitle)
-                        .font(Theme.bodyStrong)
-                        .lineLimit(1)
-                    if !model.mediaDetail.isEmpty || model.showsHDR {
-                        HStack(spacing: Theme.s8) {
-                            if !model.mediaDetail.isEmpty {
-                                Text(model.mediaDetail)
-                                    .lineLimit(1)
-                            }
-                            if model.showsHDR {
-                                Text("HDR")
-                                    .font(Theme.captionStrong)
-                                    .foregroundStyle(Theme.ink)
-                                    .padding(.horizontal, Theme.s8)
-                                    .padding(.vertical, Theme.s4)
-                                    .background(Theme.magenta, in: Capsule())
-                            }
-                        }
-                        .font(Theme.caption)
-                        .foregroundStyle(Theme.inkSecondary)
-                    }
-                }
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, Theme.s12)
-                .padding(.vertical, Theme.s8)
-                .meowxPill()
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, Theme.s16)
-        .padding(.top, Theme.s8)
-        .onHover { hovering in
-            model.topHovered = hovering
-            if hovering { model.poke() }
-        }
     }
 
     private var dropOverlay: some View {

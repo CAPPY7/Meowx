@@ -142,6 +142,7 @@ final class PlayerModel {
     var statusText: String?
     var statusProgress: Double?
     var statusMark: StatusMark = .generic
+    var openingTitle: String?
     var actionGlyph: ActionGlyph?
     var transportOpen = false
     var engineError: String?
@@ -193,6 +194,14 @@ final class PlayerModel {
 
     private init() {
         settings = SettingsStore.load()
+        let fitted = SubtitleStyle.migrated(size: settings.subtitleSize, outline: settings.subtitleOutline)
+        if fitted.size != settings.subtitleSize || fitted.outline != settings.subtitleOutline {
+            var copy = settings
+            copy.subtitleSize = fitted.size
+            copy.subtitleOutline = fitted.outline
+            settings = copy
+            SettingsStore.save(copy)
+        }
         playlistShown = settings.playlistOpen
         playlist.repeatMode = settings.endBehavior
         if settings.rememberVolume { volume = settings.savedVolume }
@@ -1297,7 +1306,7 @@ final class PlayerModel {
     }
 
     func copyDiagnostics() {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.11"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.12"
         let mpv = engine?.stringProp("mpv-version") ?? "unavailable"
         let hardware = hwdec.isEmpty ? (settings.hardwareDecoding ? "videotoolbox requested" : "off") : hwdec
         var lines = [
@@ -1439,6 +1448,24 @@ final class PlayerModel {
         }
         engine?.load(item.url)
         play()
+        presentOpeningTitle(item.title)
+    }
+
+    private var openingToken = UUID()
+
+    private func presentOpeningTitle(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            openingTitle = nil
+            return
+        }
+        openingTitle = trimmed
+        let token = UUID()
+        openingToken = token
+        DispatchQueue.main.asyncAfter(deadline: .now() + OpeningCue.seconds) { [weak self] in
+            guard let self, self.openingToken == token else { return }
+            self.openingTitle = nil
+        }
     }
 
     private func tick() {
@@ -1816,7 +1843,7 @@ final class PlayerModel {
 
     func checkForUpdate(manual: Bool) {
         if !manual, !settings.checkForUpdates { return }
-        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.11"
+        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.12"
         Task { [weak self] in
             let found = await Self.latestReleaseTag()
             DispatchQueue.main.async { [weak self] in

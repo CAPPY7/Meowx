@@ -37,6 +37,22 @@ final class LayoutRulesTests: XCTestCase {
         XCTAssertEqual(MediaLine.detail(width: 1280, height: 720, codec: ""), "1280×720")
     }
 
+    func testVolumeKnobSitsOnTheLevel() {
+        XCTAssertEqual(VolumeTrack.fraction(volume: 100, muted: false), 0.5, accuracy: 0.001)
+        XCTAssertEqual(VolumeTrack.fraction(volume: 250, muted: false), 1, accuracy: 0.001)
+        XCTAssertEqual(VolumeTrack.fraction(volume: 80, muted: true), 0, accuracy: 0.001)
+        XCTAssertEqual(VolumeTrack.knobCenter(fraction: 0.5, width: 100, knob: 12), 50, accuracy: 0.001)
+        XCTAssertEqual(VolumeTrack.knobCenter(fraction: 0, width: 100, knob: 12), 6, accuracy: 0.001)
+        XCTAssertEqual(VolumeTrack.knobCenter(fraction: 1, width: 100, knob: 12), 94, accuracy: 0.001)
+    }
+
+    func testOldSubtitleSizeIsBroughtDown() {
+        XCTAssertEqual(SubtitleStyle.migrated(size: 55, outline: 1).size, 36, accuracy: 0.001)
+        XCTAssertEqual(SubtitleStyle.migrated(size: 55, outline: 1).outline, 2, accuracy: 0.001)
+        XCTAssertEqual(SubtitleStyle.migrated(size: 48, outline: 1).size, 48, accuracy: 0.001)
+        XCTAssertEqual(OpeningCue.seconds, 4, accuracy: 0.001)
+    }
+
     func testBufferAndClock() {
         let span = BufferSpan.fractions(position: 10, cachedAhead: 5, duration: 100)
         XCTAssertEqual(span.played, 0.1, accuracy: 0.001)

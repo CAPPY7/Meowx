@@ -424,32 +424,25 @@ private struct VolumeSlider: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let fraction = min(1, max(0, (model.muted ? 0 : model.volume) / 200))
+            let width = max(proxy.size.width, 1)
+            let fraction = VolumeTrack.fraction(volume: model.volume, muted: model.muted)
+            let knob = Theme.s12
+            let center = CGFloat(VolumeTrack.knobCenter(fraction: fraction, width: Double(width), knob: Double(knob)))
             ZStack(alignment: .leading) {
-                Capsule().fill(Theme.inkFaint)
+                Capsule().fill(Theme.inkTrack)
                 Capsule()
-                    .fill(Theme.warning.opacity(0.35))
-                    .frame(width: proxy.size.width * 0.5)
-                    .offset(x: proxy.size.width * 0.5)
-                Capsule()
-                    .fill(Theme.accent)
-                    .frame(width: proxy.size.width * min(fraction, 0.5))
-                if fraction > 0.5 {
-                    Capsule()
-                        .fill(Theme.warning)
-                        .frame(width: proxy.size.width * (fraction - 0.5))
-                        .offset(x: proxy.size.width * 0.5)
-                }
-                Rectangle()
-                    .fill(Theme.tick)
-                    .frame(width: Theme.hairline, height: Theme.s12)
-                    .position(x: proxy.size.width * 0.5, y: proxy.size.height / 2)
+                    .fill(fraction > 0.5 ? Theme.warning : Theme.accent)
+                    .frame(width: max(knob / 2, CGFloat(fraction) * width))
+                Circle()
+                    .fill(Theme.ink)
+                    .frame(width: knob, height: knob)
+                    .offset(x: center - knob / 2)
             }
             .frame(height: Theme.seekRest)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { value in
-                let ratio = min(1, max(0, value.location.x / max(proxy.size.width, 1)))
+                let ratio = min(1, max(0, value.location.x / max(width, 1)))
                 model.setVolume(ratio * 200)
             })
         }

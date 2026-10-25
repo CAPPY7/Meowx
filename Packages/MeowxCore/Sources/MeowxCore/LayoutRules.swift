@@ -34,6 +34,38 @@ public enum HDRBadge {
     }
 }
 
+public enum OpeningCue {
+    /// How long the file name stays at the top after playback starts.
+    public static let seconds: Double = 4
+}
+
+public enum VolumeTrack {
+    public static func fraction(volume: Double, muted: Bool) -> Double {
+        guard !muted, volume.isFinite else { return 0 }
+        return min(1, max(0, volume / 200))
+    }
+
+    /// Center of the knob. It stays on the bar and lines up with the filled part.
+    public static func knobCenter(fraction: Double, width: Double, knob: Double) -> Double {
+        guard width.isFinite, width > 0 else { return 0 }
+        let mark = min(1, max(0, fraction)) * width
+        let half = max(0, knob) / 2
+        if width <= knob { return width / 2 }
+        return min(max(half, mark), width - half)
+    }
+}
+
+public enum SubtitleStyle {
+    public static let size: Double = 36
+    public static let outline: Double = 2
+
+    /// The first release used 55 pt and a 1 pt outline, which reads too large on a laptop picture.
+    public static func migrated(size: Double, outline: Double) -> (size: Double, outline: Double) {
+        if size == 55, outline == 1 { return (Self.size, Self.outline) }
+        return (size, outline)
+    }
+}
+
 public enum MediaLine {
     public static func detail(width: Int, height: Int, codec: String) -> String {
         var parts: [String] = []

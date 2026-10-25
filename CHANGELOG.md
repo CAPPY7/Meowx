@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.12
+
+- The file name shows at the top for 4 seconds when playback starts, then goes away. It is the full file name.
+- The volume knob sits on the filled part of the slider. The old white mark was fixed at the halfway point.
+- Subtitle size starts at 36 with a 2 pt outline, which fits a laptop picture. A saved 55 / 1 pt pair from the first settings file is brought down to that. Size can still be changed. Styled subtitle tracks keep their own look.
+
 ## 1.0.11
 
 - Playlist, Open, and Open URL sit on the control bar next to subtitles. They no longer float on the picture. The name of the file sits at the top left and hides with the controls.
