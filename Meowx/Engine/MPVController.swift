@@ -98,6 +98,7 @@ final class MPVController {
         option("volume-max", "200")
         option("cache", "yes")
         option("cache-pause", "no")
+        option("network-timeout", "45")
         option("demuxer-max-bytes", "\(settings.cacheMegabytes)MiB")
         option("demuxer-max-back-bytes", "\(settings.cacheBackMegabytes)MiB")
         option("demuxer-readahead-secs", "60")
@@ -116,6 +117,15 @@ final class MPVController {
         if let ytdlpPath {
             option("ytdl", "yes")
             option("script-opts", "ytdl_hook-ytdl_path=\(ytdlpPath)")
+            // 1080p H.264 starts quickly. 4K AV1 was the slow path.
+            option("ytdl-format", "bv*[height<=1080][vcodec^=avc1]+ba[acodec^=mp4a]/bv*[height<=1080]+ba/b[height<=1080]/b")
+            let helpers = (ytdlpPath as NSString).deletingLastPathComponent
+            let deno = (helpers as NSString).appendingPathComponent("deno")
+            var raw = "socket-timeout=20,ffmpeg-location=\(helpers)"
+            if FileManager.default.isExecutableFile(atPath: deno) {
+                raw += ",js-runtimes=deno:\(deno),remote-components=ejs:github"
+            }
+            option("ytdl-raw-options", raw)
         } else {
             option("ytdl", "no")
         }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.15
+
+- YouTube was waiting on every subtitle and had no JavaScript solver, so the link sat there and never started. It now asks for a 1080p picture, skips the subtitle pile, and uses a bundled Deno solver. The first open can still take a few seconds while that solver is fetched. After that it should start. A failed link says so instead of spinning.
+
 ## 1.0.14
 
 - Volume and seek keys no longer wake the control bar. Every key used to.

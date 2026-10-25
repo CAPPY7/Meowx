@@ -88,6 +88,16 @@ for tool in ffmpeg ffprobe; do
   rewrite_rpaths "$HELPERS/$tool"
 done
 
+DENO_ZIP="$(mktemp)"
+curl -fL --retry 3 -o "$DENO_ZIP" "https://github.com/denoland/deno/releases/latest/download/deno-aarch64-apple-darwin.zip"
+unzip -q -o "$DENO_ZIP" -d "$HELPERS"
+rm -f "$DENO_ZIP"
+chmod 755 "$HELPERS/deno"
+if ! file "$HELPERS/deno" | grep -q 'Mach-O'; then
+  echo "error: deno download is not a binary" >&2
+  exit 1
+fi
+
 HOOK_DEST="$APP/Contents/Resources/mpv/scripts/ytdl_hook.lua"
 mkdir -p "$(dirname "$HOOK_DEST")"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -108,7 +118,7 @@ if [[ -d "$HELPERS/lib" ]]; then
     codesign --force --sign - "$lib"
   done < <(find "$HELPERS/lib" -type f \( -name '*.dylib' -o -name '*.so' \) -print0)
 fi
-codesign --force --sign - "$HELPERS/yt-dlp" "$HELPERS/ffmpeg" "$HELPERS/ffprobe"
+codesign --force --sign - "$HELPERS/yt-dlp" "$HELPERS/ffmpeg" "$HELPERS/ffprobe" "$HELPERS/deno"
 
 codesign --force --deep --sign - "$APP"
 echo "Bundled and ad-hoc signed $APP"

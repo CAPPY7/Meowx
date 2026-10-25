@@ -1312,7 +1312,7 @@ final class PlayerModel {
     }
 
     func copyDiagnostics() {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.14"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.15"
         let mpv = engine?.stringProp("mpv-version") ?? "unavailable"
         let hardware = hwdec.isEmpty ? (settings.hardwareDecoding ? "videotoolbox requested" : "off") : hwdec
         var lines = [
@@ -1451,6 +1451,8 @@ final class PlayerModel {
         if item.url.isFileURL {
             NSDocumentController.shared.noteNewRecentDocumentURL(item.url)
             recentRevision += 1
+        } else {
+            showStatus("Fetching the video…")
         }
         engine?.load(item.url)
         play()
@@ -1849,7 +1851,7 @@ final class PlayerModel {
 
     func checkForUpdate(manual: Bool) {
         if !manual, !settings.checkForUpdates { return }
-        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.14"
+        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.15"
         Task { [weak self] in
             let found = await Self.latestReleaseTag()
             DispatchQueue.main.async { [weak self] in
@@ -1974,8 +1976,9 @@ extension PlayerModel: EngineDelegate {
             AppLog.shared.add("playback error: \(message)")
             opening = false
             buffering = false
-            errorMessage = "Couldn't play this file. \(message)"
-            errorTitle = "Can't play this"
+            let link = playlist.current?.url.isFileURL == false
+            errorMessage = link ? "Couldn't open this link. \(message)" : "Couldn't play this file. \(message)"
+            errorTitle = link ? "Can't open this link" : "Can't play this"
             errorURL = playlist.current?.url
             errorItemID = playlist.current?.id
             evaluateChrome(reason: "error")

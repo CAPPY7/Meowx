@@ -959,11 +959,12 @@ local function run_ytdl_hook(url)
         end
     end
 
+    -- Meowx does not download every subtitle before playback. That was
+    -- stalling YouTube. One English track is enough when the site has it.
     if allsubs == true then
         table.insert(command, "--sub-langs")
-        table.insert(command, "all")
+        table.insert(command, "en.*,en")
     end
-    table.insert(command, "--write-srt")
 
     if not use_playlist then
         table.insert(command, "--no-playlist")

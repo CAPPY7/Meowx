@@ -63,6 +63,7 @@ for required in \
   "$APP/Contents/Helpers/yt-dlp" \
   "$APP/Contents/Helpers/ffmpeg" \
   "$APP/Contents/Helpers/ffprobe" \
+  "$APP/Contents/Helpers/deno" \
   "$APP/Contents/Resources/mpv/scripts/ytdl_hook.lua"
 do
   if [[ ! -e "$required" ]]; then
