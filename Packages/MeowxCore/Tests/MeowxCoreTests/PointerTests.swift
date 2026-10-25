@@ -11,6 +11,11 @@ final class PointerTests: XCTestCase {
         XCTAssertEqual(click.secondClick(), .toggleFullScreen)
         XCTAssertEqual(click.fireIfStillPending(), .none)
 
+        click.firstClick(pauseEnabled: true)
+        XCTAssertEqual(click.secondClick(zone: .leading, sideSeekEnabled: true), .seekBackward)
+        XCTAssertEqual(click.secondClick(zone: .trailing, sideSeekEnabled: true), .seekForward)
+        XCTAssertEqual(click.secondClick(zone: .leading, sideSeekEnabled: false), .toggleFullScreen)
+
         click.firstClick(pauseEnabled: false)
         XCTAssertEqual(click.fireIfStillPending(), .none)
         click.firstClick(pauseEnabled: true)
@@ -50,5 +55,7 @@ final class PointerTests: XCTestCase {
         XCTAssertTrue(settings.clickToPause)
         XCTAssertTrue(settings.scrollAdjustsVolume)
         XCTAssertTrue(settings.scrollSeeks)
+        XCTAssertTrue(settings.doubleClickSidesSeek)
+        XCTAssertFalse(settings.showRemainingTime)
     }
 }

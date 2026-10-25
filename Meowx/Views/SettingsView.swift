@@ -10,6 +10,7 @@ struct SettingsView: View {
             Toggle("Hardware decoding", isOn: binding(\.hardwareDecoding))
             Toggle("Hide title bar and controls while playing", isOn: binding(\.hideChromeWhilePlaying))
             Toggle("Click the video to play or pause", isOn: binding(\.clickToPause))
+            Toggle("Double-click the sides to jump 10 seconds", isOn: binding(\.doubleClickSidesSeek))
             Toggle("Scroll wheel changes volume", isOn: binding(\.scrollAdjustsVolume))
             Toggle("Horizontal scroll seeks", isOn: binding(\.scrollSeeks))
             Toggle("Quit when the window closes", isOn: binding(\.quitWhenWindowCloses))

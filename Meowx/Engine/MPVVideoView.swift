@@ -140,9 +140,22 @@ final class MPVVideoView: NSView, NSTouchBarDelegate {
         PlayerModel.shared.poke()
         if event.clickCount >= 2 {
             clickWork?.cancel()
-            _ = click.secondClick()
-            uiLog.info("double click full screen")
-            PlayerModel.shared.toggleFullscreen()
+            let local = convert(event.locationInWindow, from: nil)
+            let zone = PictureZone.at(x: local.x, width: bounds.width)
+            let action = click.secondClick(zone: zone, sideSeekEnabled: PlayerModel.shared.settings.doubleClickSidesSeek)
+            switch action {
+            case .toggleFullScreen:
+                uiLog.info("double click full screen")
+                PlayerModel.shared.toggleFullscreen()
+            case .seekBackward:
+                uiLog.info("double click back 10")
+                PlayerModel.shared.seek(by: -10)
+            case .seekForward:
+                uiLog.info("double click forward 10")
+                PlayerModel.shared.seek(by: 10)
+            case .togglePause, .none:
+                break
+            }
             return
         }
         click.firstClick(pauseEnabled: PlayerModel.shared.settings.clickToPause)

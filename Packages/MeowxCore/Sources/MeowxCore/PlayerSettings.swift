@@ -25,6 +25,8 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
     public var quitWhenWindowCloses: Bool
     public var resizeToVideoOnOpen: Bool
     public var playlistOpen: Bool
+    public var doubleClickSidesSeek: Bool
+    public var showRemainingTime: Bool
 
     public init(
         hardwareDecoding: Bool = true,
@@ -45,7 +47,9 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         scrollSeeks: Bool = true,
         quitWhenWindowCloses: Bool = true,
         resizeToVideoOnOpen: Bool = false,
-        playlistOpen: Bool = true
+        playlistOpen: Bool = true,
+        doubleClickSidesSeek: Bool = true,
+        showRemainingTime: Bool = false
     ) {
         self.hardwareDecoding = hardwareDecoding
         self.subtitleLanguage = subtitleLanguage
@@ -66,6 +70,8 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         self.quitWhenWindowCloses = quitWhenWindowCloses
         self.resizeToVideoOnOpen = resizeToVideoOnOpen
         self.playlistOpen = playlistOpen
+        self.doubleClickSidesSeek = doubleClickSidesSeek
+        self.showRemainingTime = showRemainingTime
     }
 
     public static let `default` = PlayerSettings()
@@ -111,6 +117,8 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         case quitWhenWindowCloses
         case resizeToVideoOnOpen
         case playlistOpen
+        case doubleClickSidesSeek
+        case showRemainingTime
     }
 
     public init(from decoder: Decoder) throws {
@@ -134,7 +142,9 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
             scrollSeeks: try container.decodeIfPresent(Bool.self, forKey: .scrollSeeks) ?? true,
             quitWhenWindowCloses: try container.decodeIfPresent(Bool.self, forKey: .quitWhenWindowCloses) ?? true,
             resizeToVideoOnOpen: try container.decodeIfPresent(Bool.self, forKey: .resizeToVideoOnOpen) ?? false,
-            playlistOpen: try container.decodeIfPresent(Bool.self, forKey: .playlistOpen) ?? true
+            playlistOpen: try container.decodeIfPresent(Bool.self, forKey: .playlistOpen) ?? true,
+            doubleClickSidesSeek: try container.decodeIfPresent(Bool.self, forKey: .doubleClickSidesSeek) ?? true,
+            showRemainingTime: try container.decodeIfPresent(Bool.self, forKey: .showRemainingTime) ?? false
         )
     }
 
@@ -159,5 +169,7 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         try container.encode(quitWhenWindowCloses, forKey: .quitWhenWindowCloses)
         try container.encode(resizeToVideoOnOpen, forKey: .resizeToVideoOnOpen)
         try container.encode(playlistOpen, forKey: .playlistOpen)
+        try container.encode(doubleClickSidesSeek, forKey: .doubleClickSidesSeek)
+        try container.encode(showRemainingTime, forKey: .showRemainingTime)
     }
 }

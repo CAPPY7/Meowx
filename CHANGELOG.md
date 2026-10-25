@@ -6,6 +6,7 @@
 - One design token list for color, type, spacing, corners, and motion. The player window stays dark. Settings and About follow the system. Reduce Motion drops the fades. Reduce Transparency uses a solid surface instead of the thin material.
 - Meowx > About Meowx shows the name, version, GPLv3, and links to the GitHub repo and license. Update checking is not in this build.
 - The video fills the window. Showing or hiding the controls no longer resizes it. The playlist is a panel over the picture, remembered open or closed, and Esc closes it. The top bar clears the real traffic-light buttons instead of a fixed inset.
+- The control bar is a short capsule: clock, seek, volume, back 10, play, forward 10, tracks, speed, more, and full screen. Loop, picture, chapters, video, screenshot, and the floating window are in More. Double-click the sides of the picture to jump 10 seconds. The middle still full-screens.
 
 ## 1.0.8
 

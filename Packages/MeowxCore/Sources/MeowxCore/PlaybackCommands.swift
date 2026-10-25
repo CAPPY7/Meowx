@@ -123,6 +123,25 @@ public enum ChapterNav {
     }
 }
 
+public enum ActionGlyph: Equatable, Sendable {
+    case play
+    case pause
+    case skipBack
+    case skipForward
+    case seekBack
+    case seekForward
+}
+
+public enum StatusMark: Equatable, Sendable {
+    case generic
+    case volume
+    case speed
+    case seekForward
+    case seekBack
+    case track
+    case loop
+}
+
 public enum VideoFlip {
     public static func filter(horizontal: Bool, vertical: Bool) -> String {
         switch (horizontal, vertical) {

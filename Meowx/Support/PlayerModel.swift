@@ -37,6 +37,7 @@ final class PlayerModel {
     }
 
     private var statusToken = UUID()
+    private var glyphToken = UUID()
     private var pendingTrackAnnouncement: String?
     private var lastPoke = Date()
     private var lastHideSchedule = Date.distantPast
@@ -122,6 +123,9 @@ final class PlayerModel {
     var errorMessage: String?
     var statusText: String?
     var statusProgress: Double?
+    var statusMark: StatusMark = .generic
+    var actionGlyph: ActionGlyph?
+    var transportOpen = false
     var engineError: String?
 
     var displayTitle: String {
@@ -408,7 +412,13 @@ final class PlayerModel {
             openFiles(playNow: true)
             return
         }
-        if paused { play() } else { pause() }
+        if paused {
+            play()
+            flashGlyph(.play)
+        } else {
+            pause()
+            flashGlyph(.pause)
+        }
     }
 
     func play() {
@@ -433,6 +443,7 @@ final class PlayerModel {
     func next() {
         guard allow("skip") else { return }
         guard let item = playlist.skipped(by: 1) else { return }
+        flashGlyph(.skipForward)
         load(item, resume: true)
     }
 
@@ -440,12 +451,16 @@ final class PlayerModel {
         guard allow("skip") else { return }
         if position > 3 {
             seek(to: 0, exact: true)
+            flashGlyph(.seekBack)
+            flashStatus("Start", mark: .seekBack)
             return
         }
         guard let item = playlist.skipped(by: -1) else {
             seek(to: 0, exact: true)
+            flashGlyph(.seekBack)
             return
         }
+        flashGlyph(.skipBack)
         load(item, resume: true)
     }
 
@@ -454,7 +469,9 @@ final class PlayerModel {
         engine?.seekRelative(delta)
         position = max(0, position + delta)
         let whole = Int(delta.rounded())
-        flashStatus(whole >= 0 ? "Seek +\(whole) s" : "Seek \(whole) s")
+        let forward = delta >= 0
+        flashGlyph(forward ? .seekForward : .seekBack)
+        flashStatus(whole >= 0 ? "Seek +\(whole) s" : "Seek \(whole) s", mark: forward ? .seekForward : .seekBack)
     }
 
     func seek(to seconds: Double, exact: Bool) {
@@ -511,7 +528,7 @@ final class PlayerModel {
     func setSpeed(_ value: Double) {
         speed = min(4, max(0.25, value))
         engine?.setSpeed(speed)
-        flashStatus(speed == 1 ? "Speed 1x" : String(format: "Speed %.2gx", speed))
+        flashStatus(speed == 1 ? "Speed 1x" : String(format: "Speed %.2gx", speed), mark: .speed)
     }
 
     func nudgeSpeed(_ direction: Int) {
@@ -644,7 +661,7 @@ final class PlayerModel {
             engine?.seekRelative(action.seekDelta)
             position = max(0, position + action.seekDelta)
             let whole = Int(action.seekDelta.rounded())
-            flashStatus(whole >= 0 ? "Seek +\(whole) s" : "Seek \(whole) s")
+            flashStatus(whole >= 0 ? "Seek +\(whole) s" : "Seek \(whole) s", mark: action.seekDelta >= 0 ? .seekForward : .seekBack)
         }
         if action.volumeDelta != 0 || action.seekDelta != 0 { poke() }
     }
@@ -667,14 +684,28 @@ final class PlayerModel {
         flashStatus("Copied")
     }
 
-    func flashStatus(_ text: String, progress: Double? = nil) {
-        showStatus(text, progress: progress)
+    func flashStatus(_ text: String, progress: Double? = nil, mark: StatusMark = .generic) {
+        showStatus(text, progress: progress, mark: mark)
         poke()
+    }
+
+    func flashGlyph(_ glyph: ActionGlyph) {
+        actionGlyph = glyph
+        let token = UUID()
+        glyphToken = token
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+            guard let self, self.glyphToken == token else { return }
+            self.actionGlyph = nil
+        }
+    }
+
+    func toggleTimeReadout() {
+        updateSettings { $0.showRemainingTime.toggle() }
     }
 
     func flashVolume() {
         let level = muted ? 0 : min(1, max(0, volume / 200))
-        flashStatus(muted ? "Muted" : "Volume \(Int(volume.rounded()))%", progress: level)
+        flashStatus(muted ? "Muted" : "Volume \(Int(volume.rounded()))%", progress: level, mark: .volume)
     }
 
     func performShortcut(_ id: String) {
@@ -744,13 +775,13 @@ final class PlayerModel {
     func setLoopA() {
         loopA = position
         engine?.setString("ab-loop-a", String(format: "%.3f", position))
-        flashStatus("Loop A set")
+        flashStatus("Loop A set", mark: .loop)
     }
 
     func setLoopB() {
         loopB = position
         engine?.setString("ab-loop-b", String(format: "%.3f", position))
-        flashStatus("Loop B set")
+        flashStatus("Loop B set", mark: .loop)
     }
 
     func clearLoop() {
@@ -758,7 +789,7 @@ final class PlayerModel {
         loopB = nil
         engine?.setString("ab-loop-a", "no")
         engine?.setString("ab-loop-b", "no")
-        flashStatus("A-B loop cleared")
+        flashStatus("A-B loop cleared", mark: .loop)
     }
 
     func cycleLoopPoint() {
@@ -772,7 +803,7 @@ final class PlayerModel {
     func toggleFileLoop() {
         fileLoop.toggle()
         applyVideoAdjustments()
-        flashStatus(fileLoop ? "Loop file on" : "Loop file off")
+        flashStatus(fileLoop ? "Loop file on" : "Loop file off", mark: .loop)
     }
 
     func toggleSubtitleVisibility() {
@@ -1085,7 +1116,7 @@ final class PlayerModel {
             hasVideo: showsVideo,
             scrubbing: scrubbing,
             pointerOverControls: controlsHovered || topHovered,
-            overlayOpen: urlPrompt || timePrompt || shortcutPrompt || searchOpen || menuOpen || pictureOpen,
+            overlayOpen: urlPrompt || timePrompt || shortcutPrompt || searchOpen || menuOpen || pictureOpen || transportOpen,
             secondsSinceActivity: Date().timeIntervalSince(lastPoke),
             hideAfter: settings.chromeHideDelay,
             showingError: errorMessage != nil || engineError != nil
@@ -1281,9 +1312,10 @@ final class PlayerModel {
         }
     }
 
-    private func showStatus(_ text: String, progress: Double? = nil) {
+    private func showStatus(_ text: String, progress: Double? = nil, mark: StatusMark = .generic) {
         statusText = text
         statusProgress = progress
+        statusMark = mark
         uiLog.info("osd \(text, privacy: .public)")
         statusToken = UUID()
         let token = statusToken
@@ -1291,6 +1323,7 @@ final class PlayerModel {
             guard let self, self.statusToken == token else { return }
             self.statusText = nil
             self.statusProgress = nil
+            self.statusMark = .generic
         }
     }
 
@@ -1491,9 +1524,9 @@ extension PlayerModel: EngineDelegate {
         pendingTrackAnnouncement = nil
         if kind == "sub" {
             let name = subtitleTrackID <= 0 ? "Subtitles off" : (subtitleTracks.first { $0.id == subtitleTrackID }?.label ?? "Subtitles off")
-            flashStatus(name)
+            flashStatus(name, mark: .track)
         } else if kind == "audio" {
-            flashStatus(audioTracks.first { $0.id == audioTrackID }?.label ?? "Audio")
+            flashStatus(audioTracks.first { $0.id == audioTrackID }?.label ?? "Audio", mark: .track)
         }
     }
 }

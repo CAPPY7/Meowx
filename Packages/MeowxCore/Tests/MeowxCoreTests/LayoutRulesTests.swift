@@ -37,6 +37,21 @@ final class LayoutRulesTests: XCTestCase {
         XCTAssertEqual(MediaLine.detail(width: 1280, height: 720, codec: ""), "1280×720")
     }
 
+    func testBufferAndClock() {
+        let span = BufferSpan.fractions(position: 10, cachedAhead: 5, duration: 100)
+        XCTAssertEqual(span.played, 0.1, accuracy: 0.001)
+        XCTAssertEqual(span.bufferStart, 0.1, accuracy: 0.001)
+        XCTAssertEqual(span.bufferEnd, 0.15, accuracy: 0.001)
+        XCTAssertEqual(BufferSpan.fractions(position: 0, cachedAhead: 0, duration: 0).played, 0, accuracy: 0.001)
+        XCTAssertEqual(TimeReadout.seconds(position: 40, duration: 100, remaining: false), 100, accuracy: 0.001)
+        XCTAssertEqual(TimeReadout.seconds(position: 40, duration: 100, remaining: true), 60, accuracy: 0.001)
+        XCTAssertEqual(PictureZone.at(x: 10, width: 300), .leading)
+        XCTAssertEqual(PictureZone.at(x: 150, width: 300), .center)
+        XCTAssertEqual(PictureZone.at(x: 250, width: 300), .trailing)
+        XCTAssertEqual(PictureZone.at(x: 10, width: 0), .center)
+        XCTAssertEqual(SpeedPresets.values, [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4])
+    }
+
     func testThumbnailCacheKeyIsStable() {
         let first = ThumbnailCache.key(path: "/films/one.mkv", fileSize: 10)
         XCTAssertEqual(first, ThumbnailCache.key(path: "/films/one.mkv", fileSize: 10))

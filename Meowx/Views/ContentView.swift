@@ -48,24 +48,33 @@ struct ContentView: View {
             } else if !model.showsVideo {
                 audioStage.allowsHitTesting(false)
             }
-            if model.opening || model.buffering {
-                loading.allowsHitTesting(false)
-            }
-            if let status = model.statusText {
-                statusBadge(status)
-            }
             if model.statsVisible {
                 StatsOverlay(model: model).allowsHitTesting(false)
             }
             if model.dropTargeted {
                 dropOverlay
             }
+            if let glyph = model.actionGlyph {
+                CenterGlyph(glyph: glyph)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
         }
         .overlay(alignment: .top) {
-            topBar
-                .opacity(model.chromeShown ? 1 : 0)
-                .allowsHitTesting(model.chromeShown)
-                .animation(Theme.fade(reduceMotion), value: model.chromeShown)
+            VStack(spacing: Theme.s8) {
+                topBar
+                    .opacity(model.chromeShown ? 1 : 0)
+                    .allowsHitTesting(model.chromeShown)
+                if let status = model.statusText {
+                    StatusPill(text: status, progress: model.statusProgress, mark: model.statusMark)
+                        .allowsHitTesting(false)
+                }
+            }
+            .padding(.top, model.chromeShown ? Theme.s8 : Theme.s24)
+            .allowsHitTesting(model.chromeShown)
+            .animation(Theme.fade(reduceMotion), value: model.chromeShown)
+            .animation(Theme.fade(reduceMotion), value: model.statusText)
+            .animation(Theme.fade(reduceMotion), value: model.actionGlyph)
         }
         .overlay(alignment: .bottom) {
             controls
@@ -156,46 +165,10 @@ struct ContentView: View {
         }
     }
 
-    private var loading: some View {
-        VStack(spacing: Theme.s8) {
-            ProgressView().controlSize(.large)
-            Text(model.buffering ? "Buffering \(Int(model.cacheSeconds))s" : "Opening")
-                .font(Theme.body)
-                .foregroundStyle(Theme.ink)
-        }
-        .padding(Theme.s16)
-        .background(Theme.scrim, in: RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
-    }
-
-    private func statusBadge(_ text: String) -> some View {
-        VStack {
-            VStack(spacing: Theme.s8) {
-                Text(text)
-                    .font(Theme.bodyStrong)
-                if let progress = model.statusProgress {
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Theme.inkTrack)
-                        Capsule().fill(Theme.ink).frame(width: Theme.progressWidth * progress)
-                    }
-                    .frame(width: Theme.progressWidth, height: Theme.progressHeight)
-                }
-            }
-            .padding(.horizontal, Theme.s12)
-            .padding(.vertical, Theme.s8)
-            .background(Theme.scrim, in: RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
-            .foregroundStyle(Theme.ink)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, Theme.s24)
-        .allowsHitTesting(false)
-    }
-
     private var controls: some View {
         ControlsView(model: model)
-            .padding(Theme.s12)
-            .meowxSurface(Theme.radiusMedium)
-            .padding(Theme.s12)
+            .padding(.horizontal, Theme.s24)
+            .padding(.bottom, Theme.s24)
             .onHover { hovering in
                 model.controlsHovered = hovering
                 model.poke()
@@ -326,6 +299,69 @@ struct ContentView: View {
                     continuation.resume(returning: nil)
                 }
             }
+        }
+    }
+}
+
+private struct StatusPill: View {
+    var text: String
+    var progress: Double?
+    var mark: StatusMark
+
+    var body: some View {
+        HStack(spacing: Theme.s8) {
+            Image(systemName: symbol)
+                .font(Theme.symbol)
+                .symbolRenderingMode(.hierarchical)
+            VStack(alignment: .leading, spacing: Theme.s4) {
+                Text(text).font(Theme.bodyStrong)
+                if let progress {
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Theme.inkTrack)
+                        Capsule().fill(Theme.accent).frame(width: Theme.progressWidth * progress)
+                    }
+                    .frame(width: Theme.progressWidth, height: Theme.progressHeight)
+                }
+            }
+        }
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, Theme.s16)
+        .padding(.vertical, Theme.s8)
+        .meowxGlass(capsule: true)
+    }
+
+    private var symbol: String {
+        switch mark {
+        case .volume: return "speaker.wave.2.fill"
+        case .speed: return "speedometer"
+        case .seekForward: return "goforward"
+        case .seekBack: return "gobackward"
+        case .track: return "captions.bubble"
+        case .loop: return "repeat"
+        case .generic: return "info.circle"
+        }
+    }
+}
+
+private struct CenterGlyph: View {
+    var glyph: ActionGlyph
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(Theme.title)
+            .foregroundStyle(Theme.ink)
+            .frame(width: Theme.playSize + Theme.s16, height: Theme.playSize + Theme.s16)
+            .background(Theme.scrim, in: Circle())
+    }
+
+    private var symbol: String {
+        switch glyph {
+        case .play: return "play.fill"
+        case .pause: return "pause.fill"
+        case .skipBack: return "backward.fill"
+        case .skipForward: return "forward.fill"
+        case .seekBack: return "gobackward"
+        case .seekForward: return "goforward"
         }
     }
 }

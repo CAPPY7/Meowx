@@ -74,6 +74,10 @@ enum Theme {
     static let windowMinHeight: CGFloat = 480
     static let playlistWidth: CGFloat = 320
     static let pictureInset: CGFloat = 56
+    static let barWidth: CGFloat = 760
+    static let playSize: CGFloat = 44
+    static let seekRest: CGFloat = 6
+    static let seekHover: CGFloat = 10
 
     static func fade(_ reduceMotion: Bool) -> Animation? {
         let duration = DesignTokens.duration(DesignTokens.fade, reduceMotion: reduceMotion)
@@ -152,7 +156,31 @@ extension View {
         modifier(MeowxPill())
     }
 
+    func meowxGlass(capsule: Bool = false) -> some View {
+        modifier(MeowxGlass(capsule: capsule))
+    }
+
     func meowxHit() -> some View {
         frame(minWidth: Theme.hit, minHeight: Theme.hit)
+    }
+}
+
+private struct MeowxGlass: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    var capsule: Bool
+
+    func body(content: Content) -> some View {
+        let rect = RoundedRectangle(cornerRadius: Theme.radiusLarge, style: .continuous)
+        if reduceTransparency {
+            if capsule {
+                content.background(Theme.scrimSolid, in: Capsule())
+            } else {
+                content.background(Theme.scrimSolid, in: rect)
+            }
+        } else if capsule {
+            content.glassEffect(.regular, in: Capsule())
+        } else {
+            content.glassEffect(.regular, in: rect)
+        }
     }
 }

@@ -3,89 +3,69 @@ import SwiftUI
 
 struct ControlsView: View {
     var model: PlayerModel
-    @State private var sliderWidth: CGFloat = 1
+    @State private var tracksOpen = false
+    @State private var speedOpen = false
+    @State private var seekHover = false
+    @State private var seekWidth: CGFloat = 1
+    @State private var volumeOpen = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.s8) {
-            slider
-            HStack(spacing: Theme.s8) {
-                transport
-                volume
-                Spacer(minLength: Theme.s8)
-                chaptersMenu
-                pictureButton
-                speedMenu
-                subtitleMenu
-                audioMenu
-                loopButtons
-                Button { model.screenshot() } label: { Image(systemName: "camera") }
-                    .shortcutTip("screenshot")
-                    .disabled(model.playlist.current == nil)
-                Button { model.togglePictureInPicture() } label: { Image(systemName: model.pictureInPicture ? "pip.exit" : "pip.enter") }
-                    .shortcutTip("pictureInPicture")
-                Button { model.toggleFullscreen() } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }
-                    .shortcutTip("fullScreen")
-            }
-            .labelStyle(.iconOnly)
-            .buttonStyle(MeowxIconButtonStyle())
-            .foregroundStyle(Theme.primary)
+        VStack(spacing: Theme.s8) {
+            seekRow
+            buttonRow
         }
+        .padding(.horizontal, Theme.s16)
+        .padding(.vertical, Theme.s12)
+        .frame(maxWidth: Theme.barWidth)
+        .meowxGlass()
+        .onChange(of: tracksOpen) { _, _ in notePanels() }
+        .onChange(of: speedOpen) { _, _ in notePanels() }
     }
 
-    private var slider: some View {
-        VStack(spacing: Theme.s4) {
-            if model.showThumb {
-                thumbPreview
+    private var seekRow: some View {
+        HStack(spacing: Theme.s8) {
+            if model.opening || model.buffering {
+                ProgressView().controlSize(.small)
             }
-            HStack(spacing: Theme.s8) {
-                Text(TimeFormat.string(model.scrubbing ? model.scrub : model.position))
-                    .font(Theme.time)
-                    .frame(width: Theme.timeWidth, alignment: .leading)
-                Slider(
-                    value: Binding(
-                        get: { model.scrubbing ? model.scrub : model.position },
-                        set: { model.scrubTo($0) }
-                    ),
-                    in: 0...max(model.duration, 1),
-                    onEditingChanged: { editing in
-                        if !editing { model.endScrub() }
-                    }
-                )
-                .shortcutTip("seekBar")
-                .overlay {
-                    ChapterTicks(fractions: ChapterNav.tickFractions(
-                        times: model.chapters.map(\.time),
-                        duration: model.duration
-                    ))
-                    .allowsHitTesting(false)
-                    .padding(.horizontal, Theme.s8)
-                }
-                .background {
-                    GeometryReader { proxy in
-                        Theme.videoBlack.opacity(0)
-                            .onAppear { sliderWidth = proxy.size.width }
-                            .onChange(of: proxy.size.width) { _, width in sliderWidth = width }
-                    }
-                }
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let location):
-                        let duration = max(model.duration, 1)
-                        let ratio = min(1, max(0, location.x / max(sliderWidth, 1)))
-                        model.hover(at: duration * ratio)
-                    case .ended:
-                        model.endHover()
-                    }
-                }
-                Text(TimeFormat.string(model.duration))
-                    .font(Theme.time)
+            Text(TimeFormat.string(model.scrubbing ? model.scrub : model.position))
+                .font(Theme.digits)
+                .frame(width: Theme.timeWidth, alignment: .leading)
+            SeekBar(model: model, hovering: $seekHover, width: $seekWidth)
+            Button(action: model.toggleTimeReadout) {
+                Text(rightClock)
+                    .font(Theme.digits)
                     .frame(width: Theme.timeWidth, alignment: .trailing)
             }
+            .buttonStyle(.plain)
+            .help(model.settings.showRemainingTime ? "Show total length" : "Show time remaining")
+            .accessibilityLabel(model.settings.showRemainingTime ? "Time remaining" : "Total length")
+        }
+        .foregroundStyle(Theme.ink)
+        .overlay(alignment: .top) {
+            if model.showThumb {
+                hoverCard
+                    .offset(y: -(Theme.thumbHeight + Theme.s16))
+                    .allowsHitTesting(false)
+            }
         }
     }
 
-    private var thumbPreview: some View {
-        VStack(spacing: Theme.s4) {
+    private var rightClock: String {
+        let seconds = TimeReadout.seconds(
+            position: model.scrubbing ? model.scrub : model.position,
+            duration: model.duration,
+            remaining: model.settings.showRemainingTime
+        )
+        let text = TimeFormat.string(seconds)
+        return model.settings.showRemainingTime ? "−\(text)" : text
+    }
+
+    private var hoverCard: some View {
+        let time = model.thumbTime ?? model.position
+        let index = ChapterNav.index(at: time, chapters: model.chapters)
+        let chapter = model.chapters.first { $0.index == index }
+        return VStack(spacing: Theme.s4) {
             if let image = model.thumbImage {
                 Image(nsImage: image)
                     .resizable()
@@ -93,24 +73,60 @@ struct ControlsView: View {
                     .frame(width: Theme.thumbWidth, height: Theme.thumbHeight)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
             }
-            Text(TimeFormat.string(model.thumbTime ?? model.position))
-                .font(Theme.digits)
+            Text(TimeFormat.string(time)).font(Theme.digits)
+            if let chapter {
+                Text(ChapterNav.displayTitle(index: chapter.index, title: chapter.title))
+                    .font(Theme.caption)
+                    .lineLimit(1)
+            }
         }
         .padding(Theme.s8)
-        .background(Theme.scrimStrong, in: RoundedRectangle(cornerRadius: Theme.radiusSmall, style: .continuous))
+        .meowxGlass()
+        .offset(x: cardShift)
     }
 
-    private var transport: some View {
-        HStack(spacing: Theme.s4) {
-            Button { model.previous() } label: { Image(systemName: "backward.fill") }
-                .shortcutTip("previous")
-            Button { model.togglePause() } label: {
-                Image(systemName: model.paused ? "play.fill" : "pause.fill")
-            }
-            .shortcutTip("playPause", title: model.paused ? "Play" : "Pause")
-            Button { model.next() } label: { Image(systemName: "forward.fill") }
-                .shortcutTip("next")
+    private var cardShift: CGFloat {
+        let duration = max(model.duration, 1)
+        let fraction = min(1, max(0, (model.thumbTime ?? model.position) / duration))
+        return (fraction - 0.5) * seekWidth
+    }
+
+    private var buttonRow: some View {
+        HStack(spacing: Theme.s8) {
+            volume
+            Spacer(minLength: Theme.s4)
+            jumpButton(-10, symbol: "gobackward.10", help: "Back 10 seconds")
+            playButton
+            jumpButton(10, symbol: "goforward.10", help: "Forward 10 seconds")
+            Spacer(minLength: Theme.s4)
+            tracksButton
+            speedButton
+            moreMenu
+            Button { model.toggleFullscreen() } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }
+                .buttonStyle(MeowxIconButtonStyle())
+                .shortcutTip("fullScreen")
         }
+        .foregroundStyle(Theme.ink)
+    }
+
+    private var playButton: some View {
+        Button { model.togglePause() } label: {
+            Image(systemName: model.paused ? "play.fill" : "pause.fill")
+                .font(Theme.title)
+                .foregroundStyle(Theme.ink)
+                .frame(width: Theme.playSize, height: Theme.playSize)
+                .background(Theme.accent, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .shortcutTip("playPause", title: model.paused ? "Play" : "Pause")
+    }
+
+    private func jumpButton(_ delta: Double, symbol: String, help: String) -> some View {
+        Button { model.seek(by: delta) } label: { Image(systemName: symbol) }
+            .buttonStyle(MeowxIconButtonStyle())
+            .help(help)
+            .accessibilityLabel(help)
+            .disabled(model.playlist.current == nil)
     }
 
     private var volume: some View {
@@ -118,39 +134,98 @@ struct ControlsView: View {
             Button { model.toggleMute() } label: {
                 Image(systemName: model.muted || model.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
             }
+            .buttonStyle(MeowxIconButtonStyle())
             .shortcutTip("mute")
-            Slider(value: Binding(get: { model.muted ? 0 : model.volume }, set: { model.setVolume($0) }), in: 0...200)
-                .frame(width: Theme.volumeWidth)
-                .shortcutTip("volumeSlider", title: "Volume (Up/Down, Shift ±10)")
+            if volumeOpen {
+                VolumeSlider(model: model)
+                    .frame(width: Theme.progressWidth)
+                    .shortcutTip("volumeSlider", title: "Volume (Up/Down, Shift ±10)")
+            }
+        }
+        .onHover { hovering in
+            withAnimation(Theme.fade(reduceMotion)) { volumeOpen = hovering }
         }
     }
 
-    private var chaptersMenu: some View {
+    private var tracksButton: some View {
+        Button { tracksOpen = true } label: { Image(systemName: "captions.bubble") }
+            .buttonStyle(MeowxIconButtonStyle())
+            .help("Audio and subtitles")
+            .accessibilityLabel("Audio and subtitles")
+            .popover(isPresented: $tracksOpen, arrowEdge: .top) {
+                TracksPopover(model: model)
+            }
+    }
+
+    private var speedButton: some View {
+        Button { speedOpen = true } label: {
+            Text(speedLabel(model.speed)).font(Theme.bodyDigits)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, Theme.s8)
+        .frame(minWidth: Theme.hit, minHeight: Theme.hit)
+        .meowxPill()
+        .shortcutTip("speedUp", title: "Speed ([ ] \\)")
+        .popover(isPresented: $speedOpen, arrowEdge: .top) {
+            SpeedPopover(model: model)
+        }
+    }
+
+    private var moreMenu: some View {
         Menu {
-            Button("Previous Chapter") { model.stepChapter(-1) }
-            Button("Next Chapter") { model.stepChapter(1) }
+            Button("Previous") { model.previous() }
+            Button("Next") { model.next() }
             Divider()
-            if model.chapters.isEmpty {
-                Text("No chapters")
-            } else {
-                ForEach(model.chapters) { chapter in
-                    Button(chapterTitle(chapter)) { model.seekChapter(chapter.index) }
+            Button("Set Loop A") { model.setLoopA() }
+                .shortcutTip("loopCycle", title: "Set loop start")
+            Button("Set Loop B") { model.setLoopB() }
+                .shortcutTip("loopCycle", title: "Set loop end")
+            Button("Clear A-B Loop") { model.clearLoop() }
+                .disabled(model.loopA == nil && model.loopB == nil)
+            Button(model.fileLoop ? "Loop File Is On" : "Loop File") { model.toggleFileLoop() }
+                .shortcutTip("loopFile")
+            Divider()
+            Button("Screenshot") { model.screenshot() }
+                .shortcutTip("screenshot")
+                .disabled(model.playlist.current == nil)
+            Button(model.pictureInPicture ? "Leave Floating Window" : "Floating Window") { model.togglePictureInPicture() }
+                .shortcutTip("pictureInPicture")
+            Button("Picture Adjustments") { model.togglePicturePanel() }
+                .shortcutTip("picture")
+            Button(model.statsVisible ? "Hide Stats" : "Stats") { model.toggleStats() }
+                .shortcutTip("stats")
+            Button("Go to Time…") { model.timePrompt = true }
+                .shortcutTip("jump")
+            Divider()
+            Menu("Chapters") {
+                Button("Previous Chapter") { model.stepChapter(-1) }
+                Button("Next Chapter") { model.stepChapter(1) }
+                Divider()
+                if model.chapters.isEmpty {
+                    Text("No chapters")
+                } else {
+                    ForEach(model.chapters) { chapter in
+                        Button(chapterTitle(chapter)) { model.seekChapter(chapter.index) }
+                    }
                 }
             }
+            Menu("Video") {
+                Button("Rotate 90°") { model.rotateClockwise() }
+                Button("Cycle Aspect") { model.cycleAspect() }
+                Button("Flip Horizontal") { model.toggleFlipHorizontal() }
+                Button("Flip Vertical") { model.toggleFlipVertical() }
+                Button("Cycle Crop") { model.cycleCrop() }
+                Button("Deinterlace") { model.toggleDeinterlace() }
+                Button("Reset Zoom and Pan") { model.resetZoomAndPan() }
+            }
         } label: {
-            Image(systemName: "list.number")
+            Image(systemName: "ellipsis")
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .shortcutTip("chapters")
-    }
-
-    private var pictureButton: some View {
-        Button { model.togglePicturePanel() } label: {
-            Image(systemName: "sun.max")
-        }
-        .foregroundStyle(model.picture.isNeutral ? Theme.primary : Theme.accent)
-        .shortcutTip("picture")
+        .frame(minWidth: Theme.hit, minHeight: Theme.hit)
+        .help("More")
+        .accessibilityLabel("More")
     }
 
     private func chapterTitle(_ chapter: MediaChapter) -> String {
@@ -159,90 +234,214 @@ struct ControlsView: View {
         return "\(mark)\(name)  \(TimeFormat.string(chapter.time))"
     }
 
-    private var speedMenu: some View {
-        Menu {
-            ForEach(PlayerModel.speedSteps, id: \.self) { speed in
-                Button(speedLabel(speed)) { model.setSpeed(speed) }
-            }
-        } label: {
-            Text(speedLabel(model.speed)).font(Theme.bodyDigits)
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .shortcutTip("speedUp", title: "Speed ([ ] \\)")
-    }
-
-    private var subtitleMenu: some View {
-        Menu {
-            Picker("Subtitles", selection: Binding(get: { model.subtitleTrackID }, set: { model.selectSubtitle($0) })) {
-                Text("Off").tag(0)
-                ForEach(model.subtitleTracks) { track in
-                    Text(track.label).tag(track.id)
-                }
-            }
-            .pickerStyle(.inline)
-            if model.subtitleTracks.isEmpty {
-                Text("None available")
-            }
-            Divider()
-            Button("Add subtitle file…") { model.openSubtitleFile() }
-            Button("Search online…") { model.searchOpen = true }
-            Divider()
-            Text(String(format: "Subtitle delay: %+.1f s", model.subDelay))
-            Button("Subtitle earlier") { model.nudgeSubDelay(-0.1) }
-            Button("Subtitle later") { model.nudgeSubDelay(0.1) }
-        } label: {
-            Image(systemName: "captions.bubble")
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .shortcutTip("cycleSubtitles")
-    }
-
-    private var audioMenu: some View {
-        Menu {
-            if model.audioTracks.isEmpty {
-                Text("None available")
-            } else {
-                Picker("Audio", selection: Binding(get: { model.audioTrackID }, set: { model.selectAudio($0) })) {
-                    ForEach(model.audioTracks) { track in
-                        Text(track.label).tag(track.id)
-                    }
-                }
-                .pickerStyle(.inline)
-            }
-            Divider()
-            Text(String(format: "Audio delay: %+.1f s", model.audioDelay))
-            Button("Audio earlier") { model.nudgeAudioDelay(-0.1) }
-            Button("Audio later") { model.nudgeAudioDelay(0.1) }
-        } label: {
-            Image(systemName: "waveform")
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .shortcutTip("cycleAudio")
-    }
-
-    private var loopButtons: some View {
-        HStack(spacing: Theme.s4) {
-            Button("A") { model.setLoopA() }
-                .font(Theme.captionStrong)
-                .foregroundStyle(model.loopA == nil ? Theme.primary : Theme.accent)
-                .shortcutTip("loopCycle", title: "Set loop start")
-            Button("B") { model.setLoopB() }
-                .font(Theme.captionStrong)
-                .foregroundStyle(model.loopB == nil ? Theme.primary : Theme.accent)
-                .shortcutTip("loopCycle", title: "Set loop end")
-            if model.loopA != nil || model.loopB != nil {
-                Button { model.clearLoop() } label: { Image(systemName: "xmark") }
-                    .help("Clear A-B loop")
-                    .accessibilityLabel("Clear A-B loop")
-            }
-        }
-    }
-
     private func speedLabel(_ speed: Double) -> String {
         speed == floor(speed) ? String(format: "%.0f×", speed) : String(format: "%g×", speed)
+    }
+
+    private func notePanels() {
+        model.transportOpen = tracksOpen || speedOpen
+        if model.transportOpen { model.poke() }
+    }
+}
+
+private struct SeekBar: View {
+    var model: PlayerModel
+    @Binding var hovering: Bool
+    @Binding var width: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shimmer: CGFloat = -0.4
+
+    var body: some View {
+        GeometryReader { proxy in
+            let span = BufferSpan.fractions(
+                position: model.scrubbing ? model.scrub : model.position,
+                cachedAhead: model.cacheSeconds,
+                duration: model.duration
+            )
+            let track = hovering ? Theme.seekHover : Theme.seekRest
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.inkFaint)
+                Capsule()
+                    .fill(Theme.inkTrack)
+                    .frame(width: proxy.size.width * max(0, span.bufferEnd - span.bufferStart))
+                    .offset(x: proxy.size.width * span.bufferStart)
+                Capsule()
+                    .fill(Theme.accent)
+                    .frame(width: proxy.size.width * span.played)
+                if model.buffering {
+                    Capsule()
+                        .fill(Theme.inkSoft)
+                        .frame(width: proxy.size.width * 0.28)
+                        .offset(x: proxy.size.width * shimmer)
+                        .opacity(reduceMotion ? 0.45 : 1)
+                        .allowsHitTesting(false)
+                }
+                ChapterTicks(fractions: ChapterNav.tickFractions(
+                    times: model.chapters.map(\.time),
+                    duration: model.duration
+                ))
+                Circle()
+                    .fill(Theme.ink)
+                    .frame(width: hovering ? Theme.s12 : Theme.s8, height: hovering ? Theme.s12 : Theme.s8)
+                    .offset(x: proxy.size.width * span.played - (hovering ? Theme.s12 : Theme.s8) / 2)
+            }
+            .frame(height: track)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                width = proxy.size.width
+                let ratio = min(1, max(0, value.location.x / max(proxy.size.width, 1)))
+                model.scrubTo(max(model.duration, 0) * ratio)
+            }.onEnded { _ in
+                model.endScrub()
+            })
+            .onContinuousHover { phase in
+                width = proxy.size.width
+                switch phase {
+                case .active(let location):
+                    hovering = true
+                    let ratio = min(1, max(0, location.x / max(proxy.size.width, 1)))
+                    model.hover(at: max(model.duration, 0) * ratio)
+                case .ended:
+                    hovering = false
+                    model.endHover()
+                }
+            }
+            .onAppear {
+                width = proxy.size.width
+                guard !reduceMotion else { return }
+                withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
+                    shimmer = 1
+                }
+            }
+            .animation(Theme.fade(reduceMotion), value: hovering)
+        }
+        .frame(height: Theme.s16)
+        .shortcutTip("seekBar")
+    }
+}
+
+private struct VolumeSlider: View {
+    var model: PlayerModel
+
+    var body: some View {
+        GeometryReader { proxy in
+            let fraction = min(1, max(0, (model.muted ? 0 : model.volume) / 200))
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.inkFaint)
+                Capsule()
+                    .fill(Theme.warning.opacity(0.35))
+                    .frame(width: proxy.size.width * 0.5)
+                    .offset(x: proxy.size.width * 0.5)
+                Capsule()
+                    .fill(Theme.accent)
+                    .frame(width: proxy.size.width * min(fraction, 0.5))
+                if fraction > 0.5 {
+                    Capsule()
+                        .fill(Theme.warning)
+                        .frame(width: proxy.size.width * (fraction - 0.5))
+                        .offset(x: proxy.size.width * 0.5)
+                }
+                Rectangle()
+                    .fill(Theme.tick)
+                    .frame(width: Theme.hairline, height: Theme.s12)
+                    .position(x: proxy.size.width * 0.5, y: proxy.size.height / 2)
+            }
+            .frame(height: Theme.seekRest)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                let ratio = min(1, max(0, value.location.x / max(proxy.size.width, 1)))
+                model.setVolume(ratio * 200)
+            })
+        }
+        .frame(height: Theme.s16)
+    }
+}
+
+private struct TracksPopover: View {
+    var model: PlayerModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.s12) {
+            Text("Audio").font(Theme.bodyStrong)
+            if model.audioTracks.isEmpty {
+                Text("None available").font(Theme.caption).foregroundStyle(Theme.secondary)
+            } else {
+                ForEach(model.audioTracks) { track in
+                    trackRow(track, on: model.audioTrackID == track.id) { model.selectAudio(track.id) }
+                }
+            }
+            Stepper(String(format: "Audio delay %+.1f s", model.audioDelay), onIncrement: { model.nudgeAudioDelay(0.1) }, onDecrement: { model.nudgeAudioDelay(-0.1) })
+                .font(Theme.caption)
+            Divider()
+            Text("Subtitles").font(Theme.bodyStrong)
+            trackChoice("Off", detail: "", on: model.subtitleTrackID <= 0) { model.selectSubtitle(0) }
+            ForEach(model.subtitleTracks) { track in
+                trackRow(track, on: model.subtitleTrackID == track.id) { model.selectSubtitle(track.id) }
+            }
+            Stepper(String(format: "Subtitle delay %+.1f s", model.subDelay), onIncrement: { model.nudgeSubDelay(0.1) }, onDecrement: { model.nudgeSubDelay(-0.1) })
+                .font(Theme.caption)
+            HStack {
+                Button("Add subtitle file…") { model.openSubtitleFile() }
+                Button("Search online…") { model.searchOpen = true }
+            }
+        }
+        .padding(Theme.s16)
+        .frame(width: Theme.playlistWidth)
+    }
+
+    private func trackRow(_ track: MediaTrack, on: Bool, action: @escaping () -> Void) -> some View {
+        trackChoice(track.language.isEmpty ? track.title : track.language, detail: detail(track), on: on, action: action)
+    }
+
+    private func trackChoice(_ title: String, detail: String, on: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: Theme.s8) {
+                Image(systemName: on ? "checkmark" : "circle")
+                    .foregroundStyle(on ? Theme.accent : Theme.secondary)
+                    .frame(width: Theme.s16)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(title.isEmpty ? "Track" : title).font(Theme.body)
+                    if !detail.isEmpty {
+                        Text(detail).font(Theme.caption).foregroundStyle(Theme.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func detail(_ track: MediaTrack) -> String {
+        [track.codec, track.channels].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+}
+
+private struct SpeedPopover: View {
+    var model: PlayerModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.s12) {
+            Text("Speed").font(Theme.bodyStrong)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: Theme.hit * 2), spacing: Theme.s8)], spacing: Theme.s8) {
+                ForEach(SpeedPresets.values, id: \.self) { speed in
+                    Button(label(speed)) { model.setSpeed(speed) }
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, minHeight: Theme.hit)
+                        .foregroundStyle(abs(model.speed - speed) < 0.02 ? Theme.ink : Theme.primary)
+                        .background(abs(model.speed - speed) < 0.02 ? Theme.accent : Theme.inkFaint, in: Capsule())
+                }
+            }
+            Slider(value: Binding(get: { model.speed }, set: { model.setSpeed($0) }), in: 0.25...4)
+            Text(label(model.speed)).font(Theme.digits).foregroundStyle(Theme.secondary)
+        }
+        .padding(Theme.s16)
+        .frame(width: Theme.pictureWidth)
+    }
+
+    private func label(_ speed: Double) -> String {
+        abs(speed - speed.rounded()) < 0.001 ? String(format: "%.0fx", speed) : String(format: "%gx", speed)
     }
 }
 
@@ -265,6 +464,7 @@ private struct ChapterTicks: View {
                     .position(x: proxy.size.width * fraction, y: proxy.size.height / 2)
             }
         }
+        .allowsHitTesting(false)
     }
 }
 

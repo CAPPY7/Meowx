@@ -4,6 +4,23 @@ public enum VideoClick: Equatable, Sendable {
     case none
     case togglePause
     case toggleFullScreen
+    case seekBackward
+    case seekForward
+}
+
+/// Where a double-click landed. The side thirds seek. The middle still full-screens.
+public enum PictureZone: Equatable, Sendable {
+    case leading
+    case center
+    case trailing
+
+    public static func at(x: Double, width: Double) -> PictureZone {
+        guard width > 0, x.isFinite, width.isFinite else { return .center }
+        let ratio = min(1, max(0, x / width))
+        if ratio < 1.0 / 3.0 { return .leading }
+        if ratio >= 2.0 / 3.0 { return .trailing }
+        return .center
+    }
 }
 
 /// Single click waits. A second click cancels the pause and full-screens instead.
@@ -16,9 +33,14 @@ public struct PendingClick: Equatable, Sendable {
         pendingPause = pauseEnabled
     }
 
-    public mutating func secondClick() -> VideoClick {
+    public mutating func secondClick(zone: PictureZone = .center, sideSeekEnabled: Bool = true) -> VideoClick {
         pendingPause = false
-        return .toggleFullScreen
+        guard sideSeekEnabled else { return .toggleFullScreen }
+        switch zone {
+        case .leading: return .seekBackward
+        case .trailing: return .seekForward
+        case .center: return .toggleFullScreen
+        }
     }
 
     public mutating func dragged() {

@@ -44,6 +44,30 @@ public enum MediaLine {
     }
 }
 
+public enum BufferSpan {
+    /// Played fraction, and the lighter cached segment ahead of the playhead.
+    public static func fractions(position: Double, cachedAhead: Double, duration: Double) -> (played: Double, bufferStart: Double, bufferEnd: Double) {
+        guard duration > 0, duration.isFinite else { return (0, 0, 0) }
+        let played = min(1, max(0, position / duration))
+        let ahead = cachedAhead.isFinite ? max(0, cachedAhead) : 0
+        let end = min(1, max(played, (max(0, position) + ahead) / duration))
+        return (played, played, end)
+    }
+}
+
+public enum TimeReadout {
+    /// The right-hand clock is either the duration or the time left.
+    public static func seconds(position: Double, duration: Double, remaining: Bool) -> Double {
+        guard duration > 0, duration.isFinite else { return 0 }
+        let played = min(max(0, position), duration)
+        return remaining ? duration - played : duration
+    }
+}
+
+public enum SpeedPresets {
+    public static let values: [Double] = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
+}
+
 public enum ThumbnailCache {
     public static func key(path: String, fileSize: Int) -> String {
         var hash: UInt64 = 14695981039346656037
