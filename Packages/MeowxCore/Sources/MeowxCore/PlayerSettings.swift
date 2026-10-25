@@ -22,6 +22,8 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
     public var clickToPause: Bool
     public var scrollAdjustsVolume: Bool
     public var scrollSeeks: Bool
+    public var quitWhenWindowCloses: Bool
+    public var resizeToVideoOnOpen: Bool
 
     public init(
         hardwareDecoding: Bool = true,
@@ -39,12 +41,14 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         chromeHideDelay: Double = 3,
         clickToPause: Bool = true,
         scrollAdjustsVolume: Bool = true,
-        scrollSeeks: Bool = true
+        scrollSeeks: Bool = true,
+        quitWhenWindowCloses: Bool = true,
+        resizeToVideoOnOpen: Bool = false
     ) {
         self.hardwareDecoding = hardwareDecoding
         self.subtitleLanguage = subtitleLanguage
         self.audioLanguage = audioLanguage
-        self.cacheMegabytes = min(4096, max(32, cacheMegabytes))
+        self.cacheMegabytes = Self.clampedCache(cacheMegabytes)
         self.screenshotFolder = screenshotFolder
         self.screenshotFormat = screenshotFormat
         self.subtitleFont = subtitleFont
@@ -57,6 +61,8 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         self.clickToPause = clickToPause
         self.scrollAdjustsVolume = scrollAdjustsVolume
         self.scrollSeeks = scrollSeeks
+        self.quitWhenWindowCloses = quitWhenWindowCloses
+        self.resizeToVideoOnOpen = resizeToVideoOnOpen
     }
 
     public static let `default` = PlayerSettings()
@@ -65,6 +71,13 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         guard value.isFinite else { return 3 }
         return min(10, max(1, value))
     }
+
+    public static func clampedCache(_ value: Int) -> Int {
+        min(2048, max(64, value))
+    }
+
+    /// Backward cache stays small so a large forward cache cannot double memory use.
+    public var cacheBackMegabytes: Int { min(cacheMegabytes, 128) }
 
     public var resolvedScreenshotFolder: URL {
         if !screenshotFolder.isEmpty {
@@ -92,6 +105,8 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         case clickToPause
         case scrollAdjustsVolume
         case scrollSeeks
+        case quitWhenWindowCloses
+        case resizeToVideoOnOpen
     }
 
     public init(from decoder: Decoder) throws {
@@ -112,7 +127,9 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
             chromeHideDelay: try container.decodeIfPresent(Double.self, forKey: .chromeHideDelay) ?? 3,
             clickToPause: try container.decodeIfPresent(Bool.self, forKey: .clickToPause) ?? true,
             scrollAdjustsVolume: try container.decodeIfPresent(Bool.self, forKey: .scrollAdjustsVolume) ?? true,
-            scrollSeeks: try container.decodeIfPresent(Bool.self, forKey: .scrollSeeks) ?? true
+            scrollSeeks: try container.decodeIfPresent(Bool.self, forKey: .scrollSeeks) ?? true,
+            quitWhenWindowCloses: try container.decodeIfPresent(Bool.self, forKey: .quitWhenWindowCloses) ?? true,
+            resizeToVideoOnOpen: try container.decodeIfPresent(Bool.self, forKey: .resizeToVideoOnOpen) ?? false
         )
     }
 
@@ -134,5 +151,7 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         try container.encode(clickToPause, forKey: .clickToPause)
         try container.encode(scrollAdjustsVolume, forKey: .scrollAdjustsVolume)
         try container.encode(scrollSeeks, forKey: .scrollSeeks)
+        try container.encode(quitWhenWindowCloses, forKey: .quitWhenWindowCloses)
+        try container.encode(resizeToVideoOnOpen, forKey: .resizeToVideoOnOpen)
     }
 }

@@ -45,6 +45,7 @@ struct WindowChrome: NSViewRepresentable {
             window.styleMask.insert(.fullSizeContentView)
             window.acceptsMouseMovedEvents = true
             window.toolbar?.isVisible = false
+            PlayerModel.shared.attachContentWindow(window)
         }
 
         private func claim(_ window: NSWindow) {
@@ -80,14 +81,20 @@ final class WindowDelegateProxy: NSObject, NSWindowDelegate {
         [.fullScreen, .autoHideToolbar, .autoHideMenuBar, .autoHideDock]
     }
 
+    func windowShouldClose(_ window: NSWindow) -> Bool {
+        PlayerModel.shared.allowWindowClose()
+    }
+
     override func responds(to selector: Selector!) -> Bool {
         if selector == #selector(window(_:willUseFullScreenPresentationOptions:)) { return true }
+        if selector == #selector(windowShouldClose(_:)) { return true }
         if let forwarded, forwarded.responds(to: selector) { return true }
         return super.responds(to: selector)
     }
 
     override func forwardingTarget(for selector: Selector!) -> Any? {
         if selector == #selector(window(_:willUseFullScreenPresentationOptions:)) { return nil }
+        if selector == #selector(windowShouldClose(_:)) { return nil }
         return forwarded
     }
 }

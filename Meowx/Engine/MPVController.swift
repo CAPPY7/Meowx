@@ -97,6 +97,7 @@ final class MPVController {
         option("cache", "yes")
         option("cache-pause", "no")
         option("demuxer-max-bytes", "\(settings.cacheMegabytes)MiB")
+        option("demuxer-max-back-bytes", "\(settings.cacheBackMegabytes)MiB")
         option("demuxer-readahead-secs", "60")
         option("sub-auto", "fuzzy")
         option("audio-file-auto", "fuzzy")
@@ -126,6 +127,7 @@ final class MPVController {
         started = true
         observe("pause", MPV_FORMAT_FLAG)
         observe("paused-for-cache", MPV_FORMAT_FLAG)
+        observe("eof-reached", MPV_FORMAT_FLAG)
         observe("track-list", MPV_FORMAT_NONE)
         apply(settings)
     }
@@ -270,9 +272,17 @@ final class MPVController {
         return command(["screenshot-to-file", url.path]) >= 0
     }
 
+    func capturePNG() -> Data? {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("meowx-art-\(UUID().uuidString).png")
+        guard screenshot(to: url, format: "png") else { return nil }
+        defer { try? FileManager.default.removeItem(at: url) }
+        return try? Data(contentsOf: url)
+    }
+
     func apply(_ settings: PlayerSettings) {
         setString("hwdec", settings.hardwareDecoding ? "videotoolbox" : "no")
         setString("demuxer-max-bytes", "\(settings.cacheMegabytes)MiB")
+        setString("demuxer-max-back-bytes", "\(settings.cacheBackMegabytes)MiB")
         setString("slang", settings.subtitleLanguage)
         setString("alang", settings.audioLanguage)
         setString("screenshot-format", settings.screenshotFormat.rawValue)
@@ -430,6 +440,11 @@ final class MPVController {
             if property.pointee.format == MPV_FORMAT_FLAG, let raw = property.pointee.data {
                 let buffering = raw.assumingMemoryBound(to: Int32.self).pointee != 0
                 delegate?.engineBufferingChanged(buffering)
+            }
+        case "eof-reached":
+            if property.pointee.format == MPV_FORMAT_FLAG, let raw = property.pointee.data, raw.assumingMemoryBound(to: Int32.self).pointee != 0 {
+                log.info("eof-reached")
+                delegate?.engineEnded(.eof)
             }
         case "track-list":
             delegate?.engineTracksChanged()

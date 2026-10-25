@@ -1,7 +1,9 @@
 import AppKit
+import os
 
 final class ThumbnailService {
     static let shared = ThumbnailService()
+    private static let log = Logger(subsystem: "com.cappy7.meowx", category: "ui")
 
     private struct Job {
         var path: String
@@ -24,6 +26,11 @@ final class ThumbnailService {
     private let height = 180
 
     func request(path: String, time: Double, completion: @escaping (NSImage?) -> Void) {
+        if path.contains("://") {
+            Self.log.info("thumbnail skipped for a network address")
+            DispatchQueue.main.async { completion(nil) }
+            return
+        }
         lock.lock()
         if unavailable {
             lock.unlock()
@@ -114,6 +121,35 @@ final class ThumbnailService {
         self.mpv = mpv
         self.render = render
         return true
+    }
+
+    func shutdown() {
+        lock.lock()
+        pending = nil
+        pumping = false
+        unavailable = true
+        lock.unlock()
+        queue.sync { teardown() }
+        Self.log.info("thumbnail engine shut down")
+    }
+
+    private func teardown() {
+        meowx_gl_lock()
+        defer { meowx_gl_unlock() }
+        if let render {
+            mpv_render_context_set_update_callback(render, { _ in }, nil)
+            mpv_render_context_free(render)
+            self.render = nil
+        }
+        if let mpv {
+            mpv_terminate_destroy(mpv)
+            self.mpv = nil
+        }
+        if glContext != nil {
+            meowx_cgl_clear_current()
+            glContext = nil
+        }
+        loadedPath = nil
     }
 
     private func renderThumbnail(path: String, time: Double) -> Data? {

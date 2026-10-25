@@ -91,7 +91,7 @@ struct MeowxCommands: Commands {
                 .keyboardShortcut("3")
             Button("Fit to Screen") { PlayerModel.shared.fitWindowToScreen() }
                 .keyboardShortcut("0")
-            Button(menuTitle("Picture in Picture", "pictureInPicture")) { PlayerModel.shared.togglePictureInPicture() }
+            Button(menuTitle("Floating Window", "pictureInPicture")) { PlayerModel.shared.togglePictureInPicture() }
             Button("Always on Top") { PlayerModel.shared.toggleAlwaysOnTop() }
                 .keyboardShortcut("t", modifiers: .command)
             Button(menuTitle("Stats", "stats")) { PlayerModel.shared.toggleStats() }

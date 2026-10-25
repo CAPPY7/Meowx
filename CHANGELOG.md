@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.7
+
+- The end of a file advances the playlist. Repeat one, repeat all, and shuffle use that ending once, so a second end signal cannot skip an item. The resume point is cleared when the file actually finishes.
+- Closing the window quits by default. Turn that off in Settings to hide the window, pause, and keep the resume point. A Dock click or an opened file brings the window back.
+- The playback timer keeps running while a menu is open or the window is resizing.
+- Full screen and always-on-top use the main window, not whichever panel is key.
+- P opens a floating window, not system Picture in Picture. Click, Space, and the right-click menu work there, and closing it puts the video back.
+- The cache size applies immediately. The slider and the saved value both stay between 64 and 2048 MB, and the backward cache stays at most 128 MB.
+- Seek thumbnails are not requested for network streams, and that second player is shut down on quit.
+- The window remembers its frame. Settings can size it to the video when a file opens.
+- File > Open Recent and the Dock menu list recent files, with Clear Menu.
+- Album art still comes from the file's tags, and falls back to an attached picture track.
+- An empty file or a text file renamed as video is refused with a message. A file the player cannot decode shows the error and leaves the playlist usable.
+
 ## 1.0.6
 
 - One key handler. Bare keys are no longer menu equivalents, so typing in Open URL, subtitle search, or Settings cannot play, mute, or switch tracks. Command shortcuts still show on the menu.

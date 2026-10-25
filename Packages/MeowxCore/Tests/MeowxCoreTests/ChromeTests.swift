@@ -20,6 +20,8 @@ final class ChromeTests: XCTestCase {
         XCTAssertEqual(settings.subtitleSize, 40, accuracy: 0.001)
         XCTAssertTrue(settings.hideChromeWhilePlaying)
         XCTAssertEqual(settings.chromeHideDelay, 3, accuracy: 0.001)
+        XCTAssertTrue(settings.quitWhenWindowCloses)
+        XCTAssertFalse(settings.resizeToVideoOnOpen)
         let again = try JSONDecoder().decode(PlayerSettings.self, from: JSONEncoder().encode(settings))
         XCTAssertEqual(again, settings)
     }

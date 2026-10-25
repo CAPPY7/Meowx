@@ -19,7 +19,7 @@ This repository is the Xcode project. It is not a prebuilt application. Build it
 - Open HTTP, HTTPS, HLS, RTSP, and RTMP addresses
 - yt-dlp for site links when you install it yourself (it is not bundled)
 - Playlist sidebar, reorder, and save as `.m3u`
-- Full screen, always on top, and a floating picture-in-picture panel
+- Full screen, always on top, and a floating window (P). This is not system Picture in Picture.
 - Seek-bar thumbnail preview
 - Volume to 200% and mute
 - Menu commands and keyboard shortcuts
@@ -127,7 +127,7 @@ These rows are the same list the app uses for keys, tooltips, and Help > Keyboar
 | F | Full screen |
 | Ctrl+Cmd+F | Full screen |
 | Esc | Leave full screen |
-| P | Picture in Picture |
+| P | Floating window |
 | Cmd+T | Always on top |
 | Cmd+1 | Window 50% |
 | Cmd+2 | Window 100% |
@@ -171,7 +171,7 @@ scripts/bundle_libs.sh "$APP"
 scripts/build_dmg.sh "$APP" 1.0.0
 ```
 
-`scripts/bundle_libs.sh` ad-hoc signs every bundled library and then the app. An unsigned arm64 app will not launch.
+`scripts/bundle_libs.sh` ad-hoc signs every bundled library and then the app. An unsigned arm64 app will not launch. The Xcode project signs with `Meowx.entitlements`: the sandbox stays off, and library validation stays off so the bundled libmpv can load. The hardened runtime is not enabled.
 
 If you want YouTube and similar links, install `yt-dlp` yourself. The Xcode build copies mpv's `ytdl_hook.lua` into the app when it can find it. Meowx does not bundle yt-dlp.
 
@@ -181,8 +181,9 @@ If you want YouTube and similar links, install `yt-dlp` yourself. The Xcode buil
 - Video is drawn with libmpv's OpenGL render API into a `CAOpenGLLayer`. libmpv does not offer a Metal render backend.
 - Dolby Vision uses the base layer. The enhancement layer is not a separate path.
 - Online subtitle search uses your own OpenSubtitles API key, stored only in preferences on this Mac.
-- Cache size and the large stream readahead are there to reduce stalls. They cannot make a slow connection instant.
-- The picture-in-picture control is a floating player panel. It is not the system video PiP used by the TV app, because that path does not take an OpenGL surface.
+- Cache size applies as soon as you move the slider (64–2048 MB). The backward cache is capped at 128 MB so a large forward cache does not double memory use. A slow connection can still stall.
+- Closing the window quits. Settings can instead hide the window and pause. The window frame is remembered. Open Recent is in the File menu and the Dock menu.
+- The floating window (P) is a small player panel, not the system Picture in Picture used by the TV app. Click, Space, and the right-click menu work in that panel. Closing it puts the video back in the main window.
 
 ## License
 

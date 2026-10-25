@@ -45,8 +45,12 @@ final class PlayerModel {
     private var activity: NSObjectProtocol?
     private var pipPanel: NSPanel?
     private weak var mainHost: NSView?
+    private weak var contentWindow: NSWindow?
     private let pipDelegate = PiPCloseDelegate()
     private(set) var ytdlpPath: String?
+    private var endGate = EndOfFileGate()
+    private var fitOnLoad = false
+    var recentRevision = 0
 
     var playlist = Playlist()
     var settings = PlayerSettings.default
@@ -133,9 +137,11 @@ final class PlayerModel {
         }
         videoView.markFramePending()
         NowPlayingService.shared.install()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 0.2, repeats: true) { [weak self] _ in
             self?.tick()
         }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
         NotificationCenter.default.addObserver(self, selector: #selector(screenChanged(_:)), name: NSWindow.didEnterFullScreenNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(screenChanged(_:)), name: NSWindow.didExitFullScreenNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(menuBegan(_:)), name: NSMenu.didBeginTrackingNotification, object: nil)
@@ -146,11 +152,46 @@ final class PlayerModel {
     func prepareToQuit() {
         saveResume()
         timer?.invalidate()
+        ThumbnailService.shared.shutdown()
         engine?.shutdown()
         engine = nil
         if let activity {
             ProcessInfo.processInfo.endActivity(activity)
         }
+    }
+
+    func attachContentWindow(_ window: NSWindow) {
+        contentWindow = window
+        if window.frameAutosaveName.isEmpty {
+            window.setFrameAutosaveName("MeowxMain")
+        }
+        window.minSize = NSSize(width: 780, height: 480)
+    }
+
+    func presentWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        if let contentWindow {
+            contentWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+        if let window = NSApp.windows.first(where: { $0.canBecomeMain && !$0.isSheet }) {
+            contentWindow = window
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    /// True lets the window close (and the app quit, when that setting is on). False hides it and pauses.
+    func allowWindowClose() -> Bool {
+        saveResume()
+        if settings.quitWhenWindowCloses {
+            uiLog.info("window close will quit")
+            return true
+        }
+        pause()
+        let window = contentWindow
+        DispatchQueue.main.async { window?.orderOut(nil) }
+        uiLog.info("window hidden, playback paused")
+        return false
     }
 
     func attachMainHost(_ host: NSView) {
@@ -165,6 +206,7 @@ final class PlayerModel {
     }
 
     func add(urls: [URL], playNow: Bool) {
+        presentWindow()
         var media: [PlaylistItem] = []
         var subtitles: [URL] = []
         for url in urls {
@@ -173,6 +215,11 @@ final class PlayerModel {
                 if MediaFiles.isSubtitle(item.url) {
                     subtitles.append(item.url)
                 } else if !MediaFiles.isJunk(item.url) {
+                    if let problem = rejected(item.url) {
+                        errorMessage = problem
+                        evaluateChrome(reason: "error")
+                        continue
+                    }
                     media.append(item)
                 }
             }
@@ -744,8 +791,26 @@ final class PlayerModel {
     }
 
     private var playbackWindow: NSWindow? {
+        if let contentWindow { return contentWindow }
         if let main = NSApp.mainWindow, main.canBecomeMain { return main }
         return NSApp.windows.first { $0.canBecomeMain && !$0.isSheet }
+    }
+
+    private func syncFloatingAspect() {
+        guard pictureInPicture, let pipPanel, videoWidth > 0, videoHeight > 0 else { return }
+        let size = NSSize(width: videoWidth, height: videoHeight)
+        if pipPanel.contentAspectRatio != size {
+            pipPanel.contentAspectRatio = size
+        }
+    }
+
+    private func rejected(_ url: URL) -> String? {
+        guard url.isFileURL, !MediaFiles.isM3U(url) else { return nil }
+        let count = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? -1
+        if count == 0 { return MediaOpenCheck.problem(byteCount: 0, header: Data()) }
+        guard count > 0, let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        let header = (try? handle.read(upToCount: 64)) ?? Data()
+        return MediaOpenCheck.problem(byteCount: count, header: header)
     }
 
     private func applyVideoAdjustments() {
@@ -762,12 +827,12 @@ final class PlayerModel {
 
     func toggleFullscreen() {
         guard passGate() else { return }
-        NSApp.mainWindow?.toggleFullScreen(nil)
+        playbackWindow?.toggleFullScreen(nil)
     }
 
     func toggleAlwaysOnTop() {
         alwaysOnTop.toggle()
-        NSApp.mainWindow?.level = alwaysOnTop ? .floating : .normal
+        playbackWindow?.level = alwaysOnTop ? .floating : .normal
     }
 
     func togglePictureInPicture() {
@@ -783,6 +848,7 @@ final class PlayerModel {
         pictureInPicture = false
         pipPanel = nil
         if let mainHost { attachMainHost(mainHost) }
+        uiLog.info("floating window closed, video returned")
     }
 
     func screenshot() {
@@ -800,7 +866,7 @@ final class PlayerModel {
     func updateSettings(_ body: (inout PlayerSettings) -> Void) {
         var copy = settings
         body(&copy)
-        copy.cacheMegabytes = min(4096, max(32, copy.cacheMegabytes))
+        copy.cacheMegabytes = PlayerSettings.clampedCache(copy.cacheMegabytes)
         copy.chromeHideDelay = PlayerSettings.clampedHideDelay(copy.chromeHideDelay)
         settings = copy
         SettingsStore.save(copy)
@@ -893,6 +959,7 @@ final class PlayerModel {
         position = 0
         if item.url.isFileURL {
             NSDocumentController.shared.noteNewRecentDocumentURL(item.url)
+            recentRevision += 1
         }
         engine?.load(item.url)
         play()
@@ -918,6 +985,20 @@ final class PlayerModel {
         audioTrackID = engine.intProp("aid") ?? audioTrackID
         subtitleTrackID = engine.intProp("sid") ?? subtitleTrackID
         tickCount += 1
+        if !opening {
+            endGate.noteProgress(position: position, duration: duration)
+        }
+        if fitOnLoad, videoWidth > 8, videoHeight > 8, playbackWindow?.styleMask.contains(.fullScreen) != true, !pictureInPicture {
+            fitOnLoad = false
+            let limit = screenLimit()
+            applyFrame(WindowFit.fitted(
+                videoWidth: videoWidth,
+                videoHeight: videoHeight,
+                maxWidth: limit.width,
+                maxHeight: limit.height
+            ), label: "Window sized to video")
+        }
+        syncFloatingAspect()
         if tickCount % 5 == 0 { NowPlayingService.shared.update(model: self) }
         if tickCount % 25 == 0 { saveResume() }
         evaluateChrome(reason: "tick")
@@ -946,22 +1027,45 @@ final class PlayerModel {
 
     private func loadArtworkIfNeeded() {
         artwork = nil
-        guard !showsVideo, let url = playlist.current?.url, url.isFileURL else { return }
-        Task {
-            let asset = AVURLAsset(url: url)
-            guard let metadata = try? await asset.load(.commonMetadata) else { return }
-            for item in metadata where item.commonKey == .commonKeyArtwork {
-                if let data = try? await item.load(.dataValue), let image = NSImage(data: data) {
-                    self.artwork = image
-                    NowPlayingService.shared.update(model: self)
-                    return
+        guard !showsVideo, let current = playlist.current else { return }
+        let url = current.url
+        let engine = self.engine
+        if url.isFileURL {
+            Task { @MainActor in
+                let asset = AVURLAsset(url: url)
+                if let metadata = try? await asset.load(.commonMetadata) {
+                    for item in metadata where item.commonKey == .commonKeyArtwork {
+                        if let data = try? await item.load(.dataValue), let image = NSImage(data: data) {
+                            self.artwork = image
+                            NowPlayingService.shared.update(model: self)
+                            return
+                        }
+                    }
                 }
+                self.captureAttachedPicture(using: engine)
+            }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+                self?.captureAttachedPicture(using: engine)
             }
         }
     }
 
+    private func captureAttachedPicture(using engine: MPVController?) {
+        guard artwork == nil, !showsVideo, playlist.current != nil else { return }
+        guard tracks.contains(where: { $0.kind == "video" && $0.albumArt }) else { return }
+        guard let data = engine?.capturePNG(), let image = NSImage(data: data), image.size.width > 1 else { return }
+        artwork = image
+        NowPlayingService.shared.update(model: self)
+        uiLog.info("album art taken from attached picture")
+    }
+
     private func requestThumb(at time: Double) {
-        guard let current = playlist.current else { return }
+        guard let current = playlist.current, current.url.isFileURL else {
+            showThumb = false
+            thumbImage = nil
+            return
+        }
         thumbTime = time
         showThumb = true
         thumbTask?.cancel()
@@ -1016,18 +1120,22 @@ final class PlayerModel {
     }
 
     private func enterPictureInPicture() {
+        let ratio = (videoWidth > 0 && videoHeight > 0) ? CGFloat(videoWidth) / CGFloat(videoHeight) : 16 / 9
+        let width: CGFloat = 480
+        let height = max(120, (width / ratio).rounded())
         let panel = NSPanel(
-            contentRect: NSRect(x: 96, y: 96, width: 480, height: 270),
-            styleMask: [.titled, .closable, .resizable, .nonactivatingPanel, .utilityWindow],
+            contentRect: NSRect(x: 80, y: 80, width: width, height: height),
+            styleMask: [.titled, .closable, .resizable, .utilityWindow, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        panel.title = displayTitle
+        panel.title = "Meowx"
         panel.level = .floating
         panel.isMovableByWindowBackground = true
         panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
+        panel.becomesKeyOnlyIfNeeded = false
         let host = NSView()
         host.wantsLayer = true
         host.layer?.backgroundColor = NSColor.black.cgColor
@@ -1040,9 +1148,10 @@ final class PlayerModel {
         videoView.frame = host.bounds
         videoView.autoresizingMask = [.width, .height]
         panel.delegate = pipDelegate
-        panel.orderFrontRegardless()
+        panel.makeKeyAndOrderFront(nil)
         pipPanel = panel
         pictureInPicture = true
+        uiLog.info("floating window shown")
     }
 
     private func expand(_ url: URL) -> [PlaylistItem] {
@@ -1112,6 +1221,8 @@ final class PlayerModel {
 extension PlayerModel: EngineDelegate {
     func engineFileLoaded() {
         opening = false
+        endGate.fileDidLoad()
+        fitOnLoad = settings.resizeToVideoOnOpen
         refreshTracks()
         refreshMetadata()
         engine?.apply(settings)
@@ -1136,15 +1247,19 @@ extension PlayerModel: EngineDelegate {
         case .error(let message):
             opening = false
             buffering = false
-            errorMessage = message
+            errorMessage = "Couldn't play this file. \(message)"
             evaluateChrome(reason: "error")
         case .eof:
+            guard endGate.consume(reached: true) else { return }
+            if fileLoop { return }
             saveResume()
             switch playlist.afterEndOfFile() {
             case .play(let item):
                 load(item, resume: playlist.repeatMode != .one)
             case .stop:
                 pause()
+                showStatus("End")
+                evaluateChrome(reason: "eof")
             }
         }
     }

@@ -12,6 +12,8 @@ struct SettingsView: View {
             Toggle("Click the video to play or pause", isOn: binding(\.clickToPause))
             Toggle("Scroll wheel changes volume", isOn: binding(\.scrollAdjustsVolume))
             Toggle("Horizontal scroll seeks", isOn: binding(\.scrollSeeks))
+            Toggle("Quit when the window closes", isOn: binding(\.quitWhenWindowCloses))
+            Toggle("Resize window to the video when a file opens", isOn: binding(\.resizeToVideoOnOpen))
             LabeledContent("Hide after") {
                 VStack(alignment: .trailing) {
                     Slider(value: binding(\.chromeHideDelay), in: 1...10, step: 0.5)
@@ -33,7 +35,7 @@ struct SettingsView: View {
                         in: 64...2048,
                         step: 64
                     )
-                    Text("\(model.settings.cacheMegabytes) MB. Used the next time Meowx opens.")
+                    Text("\(model.settings.cacheMegabytes) MB. Applies now. Backward cache stays at most 128 MB.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

@@ -85,7 +85,7 @@ enum VideoContextMenu {
         menu.addItem(submenu("Video", video))
 
         menu.addItem(item("Full Screen", key: "f", state: model.fullscreen ? .on : .off, action: #selector(VideoMenuActions.fullScreen)))
-        menu.addItem(item("Picture in Picture", key: "p", state: model.pictureInPicture ? .on : .off, action: #selector(VideoMenuActions.pictureInPicture)))
+        menu.addItem(item("Floating Window", key: "p", state: model.pictureInPicture ? .on : .off, action: #selector(VideoMenuActions.pictureInPicture)))
         menu.addItem(item("Always on Top", key: "t", modifiers: .command, state: model.alwaysOnTop ? .on : .off, action: #selector(VideoMenuActions.alwaysOnTop)))
         menu.addItem(item("Screenshot", key: "s", modifiers: [.command, .shift], action: #selector(VideoMenuActions.screenshot)))
         menu.addItem(item("Stats", key: "i", state: model.statsVisible ? .on : .off, action: #selector(VideoMenuActions.stats)))

@@ -147,7 +147,7 @@ public enum ShortcutCatalog {
         ShortcutCommand(id: "fullScreen", title: "Full screen", group: "Window", token: "f"),
         ShortcutCommand(id: "fullScreenSystem", title: "Full screen", group: "Window", token: "f", command: true, control: true),
         ShortcutCommand(id: "leaveFullScreen", title: "Leave full screen", group: "Window", token: "escape"),
-        ShortcutCommand(id: "pictureInPicture", title: "Picture in Picture", group: "Window", token: "p"),
+        ShortcutCommand(id: "pictureInPicture", title: "Floating window", group: "Window", token: "p"),
         ShortcutCommand(id: "alwaysOnTop", title: "Always on top", group: "Window", token: "t", command: true),
         ShortcutCommand(id: "windowHalf", title: "Window 50%", group: "Window", token: "1", command: true),
         ShortcutCommand(id: "windowActual", title: "Window 100%", group: "Window", token: "2", command: true),

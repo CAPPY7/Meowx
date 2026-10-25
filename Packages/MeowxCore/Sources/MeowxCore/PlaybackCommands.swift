@@ -155,3 +155,43 @@ public enum WindowFit {
         return FrameSize(width: fittedWidth.rounded(), height: fittedHeight.rounded())
     }
 }
+
+/// One end-of-file signal per visit to the end. A second event for the same ending does nothing.
+public struct EndOfFileGate: Equatable, Sendable {
+    private var consumed = false
+
+    public init() {}
+
+    public mutating func fileDidLoad() {
+        consumed = false
+    }
+
+    /// Re-arm only after playback has moved away from the end.
+    public mutating func noteProgress(position: Double, duration: Double) {
+        guard duration > 1, position < duration - 1 else { return }
+        consumed = false
+    }
+
+    public mutating func consume(reached: Bool) -> Bool {
+        guard reached else { return false }
+        if consumed { return false }
+        consumed = true
+        return true
+    }
+}
+
+public enum MediaOpenCheck {
+    public static func problem(byteCount: Int, header: Data) -> String? {
+        if byteCount == 0 { return "That file is empty." }
+        guard !header.isEmpty else { return nil }
+        let sample = header.prefix(64)
+        let text = sample.allSatisfy { byte in
+            byte == 9 || byte == 10 || byte == 13 || (byte >= 32 && byte < 127)
+        }
+        guard text else { return nil }
+        if sample.count >= 12 || byteCount == sample.count {
+            return "That file looks like text, not video or audio."
+        }
+        return nil
+    }
+}
