@@ -64,7 +64,7 @@ jobs:
           done
           test "$ok" = 1
           cp "build/Meowx-${{ steps.version.outputs.value }}.dmg" build/Meowx.dmg
-          shasum -a 256 build/Meowx.dmg | tee build/Meowx.dmg.sha256
+          ( cd build && shasum -a 256 Meowx.dmg ) | tee build/Meowx.dmg.sha256
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2

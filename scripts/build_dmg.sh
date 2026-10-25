@@ -30,5 +30,8 @@ create-dmg \
   --app-drop-link 440 190 \
   "$OUT" \
   "$APP"
-shasum -a 256 "$OUT" | tee "$OUT.sha256"
+(
+  cd "$(dirname "$OUT")"
+  shasum -a 256 "$(basename "$OUT")" | tee "$OUT.sha256"
+)
 echo "Wrote $OUT"

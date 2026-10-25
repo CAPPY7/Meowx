@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.3
+
+- Checksum files name `Meowx-<version>.dmg` and `Meowx.dmg` instead of the Actions runner path, so `shasum -a 256 -c` works after download.
+
 ## 1.0.2
 
 - Bundled libmpv loads on macOS 26. Duplicate Frameworks rpaths, including a trailing-slash copy, are removed before the app is signed. dyld was aborting `--self-test` with "duplicate LC_RPATH".
