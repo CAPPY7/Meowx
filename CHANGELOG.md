@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.9
 
 - New app icon: a white cat head with a play cutout, on a violet-to-indigo gradient. The same glyph is the empty-screen mark and the About window.
 - One design token list for color, type, spacing, corners, and motion. The player window stays dark. Settings and About follow the system. Reduce Motion drops the fades. Reduce Transparency uses a solid surface instead of the thin material.
