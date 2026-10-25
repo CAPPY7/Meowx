@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: brew install mpv ffmpeg dylibbundler create-dmg
+      - name: Version
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Build
+        run: >
+          xcodebuild
+          -project Meowx.xcodeproj
+          -scheme Meowx
+          -configuration Release
+          -destination 'platform=macOS,arch=arm64'
+          -derivedDataPath build/DerivedData
+          ARCHS=arm64
+          ONLY_ACTIVE_ARCH=NO
+          MACOSX_DEPLOYMENT_TARGET=26.0
+          CODE_SIGN_IDENTITY=-
+          CODE_SIGNING_REQUIRED=YES
+          clean build
+      - name: Bundle libraries
+        run: |
+          APP="$(find build/DerivedData -name Meowx.app -type d | head -1)"
+          test -n "$APP"
+          scripts/bundle_libs.sh "$APP"
+          mkdir -p build/dist
+          rm -rf build/dist/Meowx.app
+          cp -R "$APP" build/dist/Meowx.app
+      - name: Create DMG
+        run: scripts/build_dmg.sh build/dist/Meowx.app "${{ steps.version.outputs.value }}"
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/Meowx-${{ steps.version.outputs.value }}.dmg
+            build/Meowx-${{ steps.version.outputs.value }}.dmg.sha256
+      - name: Update Homebrew tap
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "TAP_TOKEN is not set. The DMG was published, but the Homebrew tap was not updated."
+            exit 0
+          fi
+          SHA="$(shasum -a 256 "build/Meowx-${VERSION}.dmg" | awk '{print $1}')"
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/Cappy7/homebrew-meowx.git" tap
+          python3 - "$VERSION" "$SHA" <<'PY'
+          import pathlib, sys
+          version, sha = sys.argv[1], sys.argv[2]
+          path = pathlib.Path("tap/Casks/meowx.rb")
+          text = path.read_text()
+          text = text.replace('version "1.0.0"', f'version "{version}"', 1) if 'version "1.0.0"' in text else text
+          import re
+          text = re.sub(r'version "[^"]+"', f'version "{version}"', text, count=1)
+          text = re.sub(r'sha256 "[^"]+"', f'sha256 "{sha}"', text, count=1)
+          path.write_text(text)
+          PY
+          git -C tap config user.email "actions@github.com"
+          git -C tap config user.name "Meowx Release"
+          git -C tap add Casks/meowx.rb
+          git -C tap commit -m "meowx ${VERSION}"
+          git -C tap push

@@ -1,0 +1,31 @@
+Meowx is licensed under GPL-3.0 because it links GPL-licensed builds of libmpv and FFmpeg.
+
+The following projects are used through their public interfaces or copied into Meowx.app at build or release time. The exact set of bundled libraries depends on the Homebrew mpv formula used on the build machine. `scripts/bundle_libs.sh` copies those dylibs into Contents/Frameworks.
+
+mpv
+  https://mpv.io
+  License: GPL-2.0-or-later (libmpv and ytdl_hook.lua)
+  Used for playback, decoding control, and the OpenGL render API.
+
+FFmpeg
+  https://ffmpeg.org
+  License: GPL-2.0-or-later when built as part of a GPL mpv, or LGPL-2.1-or-later for some configurations. The Meowx release links the GPL build installed by Homebrew.
+  Used via libmpv for demuxing and decoding.
+
+libass
+  https://github.com/libass/libass
+  License: ISC
+  Used via libmpv for ASS/SSA and styled subtitles.
+
+libplacebo, FreeType, FriBidi, HarfBuzz, and other libraries pulled in by Homebrew's mpv formula
+  License: various (BSD, MIT, GPL, or LGPL as declared by each project)
+  Bundled only as required shared libraries so the app runs on a Mac without Homebrew.
+
+yt-dlp
+  https://github.com/yt-dlp/yt-dlp
+  License: Unlicense
+  Not bundled. Meowx uses it only if you install it yourself.
+
+OpenSubtitles
+  https://www.opensubtitles.com
+  Optional. Used only when you supply your own API key. No key is shipped with Meowx.

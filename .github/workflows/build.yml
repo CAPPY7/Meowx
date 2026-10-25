@@ -1,0 +1,28 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libmpv
+        run: brew install mpv
+      - name: Unit tests
+        run: swift test --package-path Packages/MeowxCore
+      - name: Build
+        run: >
+          xcodebuild
+          -project Meowx.xcodeproj
+          -scheme Meowx
+          -configuration Debug
+          -destination 'platform=macOS,arch=arm64'
+          -derivedDataPath build/DerivedData
+          ARCHS=arm64
+          ONLY_ACTIVE_ARCH=YES
+          CODE_SIGN_IDENTITY=-
+          CODE_SIGNING_REQUIRED=YES
+          build

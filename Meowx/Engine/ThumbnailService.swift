@@ -1,0 +1,192 @@
+import AppKit
+
+final class ThumbnailService {
+    static let shared = ThumbnailService()
+
+    private struct Job {
+        var path: String
+        var time: Double
+        var completion: (NSImage?) -> Void
+    }
+
+    private let queue = DispatchQueue(label: "com.cappy7.meowx.thumbnails")
+    private let lock = NSLock()
+    private var pending: Job?
+    private var pumping = false
+    private var unavailable = false
+    private var mpv: OpaquePointer?
+    private var render: OpaquePointer?
+    private var glContext: UnsafeMutableRawPointer?
+    private var fbo: UInt32 = 0
+    private var texture: UInt32 = 0
+    private var loadedPath: String?
+    private let width = 320
+    private let height = 180
+
+    func request(path: String, time: Double, completion: @escaping (NSImage?) -> Void) {
+        lock.lock()
+        if unavailable {
+            lock.unlock()
+            DispatchQueue.main.async { completion(nil) }
+            return
+        }
+        pending = Job(path: path, time: time, completion: completion)
+        let start = !pumping
+        if start { pumping = true }
+        lock.unlock()
+        guard start else { return }
+        queue.async { [weak self] in self?.pump() }
+    }
+
+    private func pump() {
+        if !ensureEngine() {
+            lock.lock()
+            unavailable = true
+            pumping = false
+            let job = pending
+            pending = nil
+            lock.unlock()
+            if let job {
+                DispatchQueue.main.async { job.completion(nil) }
+            }
+            return
+        }
+        while true {
+            lock.lock()
+            let job = pending
+            pending = nil
+            if job == nil {
+                pumping = false
+                lock.unlock()
+                return
+            }
+            lock.unlock()
+            guard let job else { return }
+            let data = renderThumbnail(path: job.path, time: job.time)
+            if mpv == nil {
+                lock.lock()
+                unavailable = true
+                lock.unlock()
+            }
+            let width = self.width
+            let height = self.height
+            DispatchQueue.main.async {
+                job.completion(data.flatMap { Self.image(from: $0, width: width, height: height) })
+            }
+        }
+    }
+
+    private func ensureEngine() -> Bool {
+        if mpv != nil && render != nil { return true }
+        meowx_gl_lock()
+        defer { meowx_gl_unlock() }
+        guard let context = meowx_gl_offscreen_context() else { return false }
+        glContext = context
+        meowx_cgl_set_current(context)
+        var fbo: UInt32 = 0
+        var texture: UInt32 = 0
+        guard meowx_gl_make_fbo(Int32(width), Int32(height), &fbo, &texture) == 0 else { return false }
+        self.fbo = fbo
+        self.texture = texture
+        guard let mpv = mpv_create() else { return false }
+        mpv_set_option_string(mpv, "vo", "libmpv")
+        mpv_set_option_string(mpv, "hwdec", "no")
+        mpv_set_option_string(mpv, "ao", "null")
+        mpv_set_option_string(mpv, "audio", "no")
+        mpv_set_option_string(mpv, "mute", "yes")
+        mpv_set_option_string(mpv, "pause", "yes")
+        mpv_set_option_string(mpv, "idle", "yes")
+        mpv_set_option_string(mpv, "keep-open", "yes")
+        mpv_set_option_string(mpv, "hr-seek", "yes")
+        mpv_set_option_string(mpv, "osc", "no")
+        mpv_set_option_string(mpv, "ytdl", "no")
+        mpv_set_option_string(mpv, "config", "no")
+        mpv_set_option_string(mpv, "input-default-bindings", "no")
+        guard mpv_initialize(mpv) >= 0 else {
+            mpv_terminate_destroy(mpv)
+            return false
+        }
+        var render: OpaquePointer?
+        guard meowx_gl_create_render(&render, mpv) >= 0, let render else {
+            mpv_terminate_destroy(mpv)
+            return false
+        }
+        self.mpv = mpv
+        self.render = render
+        return true
+    }
+
+    private func renderThumbnail(path: String, time: Double) -> Data? {
+        guard let mpv, let render, let glContext else { return nil }
+        meowx_gl_lock()
+        defer { meowx_gl_unlock() }
+        meowx_cgl_set_current(glContext)
+        if loadedPath != path {
+            let joined = ["loadfile", path, "replace"].joined(separator: "\u{1f}")
+            guard meowx_command_sep(mpv, joined) >= 0, wait(mpv, for: MPV_EVENT_FILE_LOADED, timeout: 4) else {
+                return nil
+            }
+            loadedPath = path
+        }
+        let seek = ["seek", String(format: "%.3f", max(0, time)), "absolute+exact"].joined(separator: "\u{1f}")
+        _ = meowx_command_sep(mpv, seek)
+        _ = waitForSeek(mpv, timeout: 1.5)
+        for _ in 0..<4 {
+            _ = mpv_render_context_update(render)
+            meowx_gl_render_fbo(render, fbo, Int32(width), Int32(height), 0)
+            mpv_render_context_report_swap(render)
+        }
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        bytes.withUnsafeMutableBytes { raw in
+            guard let base = raw.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
+            meowx_gl_read_rgba_flipped(fbo, Int32(width), Int32(height), base)
+        }
+        return Data(bytes)
+    }
+
+    private func wait(_ mpv: OpaquePointer, for kind: mpv_event_id, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            guard let event = mpv_wait_event(mpv, 0.05) else { continue }
+            let id = event.pointee.event_id
+            if id == kind { return true }
+            if id == MPV_EVENT_END_FILE { return false }
+        }
+        return false
+    }
+
+    private func waitForSeek(_ mpv: OpaquePointer, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            guard let event = mpv_wait_event(mpv, 0.05) else { continue }
+            let id = event.pointee.event_id
+            if id == MPV_EVENT_SEEK || id == MPV_EVENT_PLAYBACK_RESTART || id == MPV_EVENT_FILE_LOADED {
+                return true
+            }
+            if id == MPV_EVENT_END_FILE { return false }
+        }
+        return false
+    }
+
+    private static func image(from data: Data, width: Int, height: Int) -> NSImage? {
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: width,
+            pixelsHigh: height,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: width * 4,
+            bitsPerPixel: 32
+        ), let plane = rep.bitmapData else { return nil }
+        data.withUnsafeBytes { raw in
+            guard let base = raw.baseAddress else { return }
+            plane.assign(from: base.assumingMemoryBound(to: UInt8.self), count: width * height * 4)
+        }
+        let image = NSImage(size: NSSize(width: width, height: height))
+        image.addRepresentation(rep)
+        return image
+    }
+}
