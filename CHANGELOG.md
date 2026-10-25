@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.0.4
 
-- While a video plays, the title, traffic lights, playlist, and playback controls hide together. A setting controls the delay. Audio files and pause keep the chrome visible.
+- While a video plays, the title, traffic lights, playlist, and playback controls hide together. Settings control the delay. Audio and pause keep them visible.
+- Right-click the video for play, seek, speed, audio, subtitles, full screen, and file actions. Items that are not built are not shown.
+- Click pauses after a short wait, double-click enters full screen, dragging the picture moves the window, and the scroll wheel changes volume or seeks. Middle-click mutes.
 
 ## 1.0.3
 

@@ -19,6 +19,9 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
     public var openSubtitlesAPIKey: String
     public var hideChromeWhilePlaying: Bool
     public var chromeHideDelay: Double
+    public var clickToPause: Bool
+    public var scrollAdjustsVolume: Bool
+    public var scrollSeeks: Bool
 
     public init(
         hardwareDecoding: Bool = true,
@@ -33,7 +36,10 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         subtitlePosition: Double = 100,
         openSubtitlesAPIKey: String = "",
         hideChromeWhilePlaying: Bool = true,
-        chromeHideDelay: Double = 3
+        chromeHideDelay: Double = 3,
+        clickToPause: Bool = true,
+        scrollAdjustsVolume: Bool = true,
+        scrollSeeks: Bool = true
     ) {
         self.hardwareDecoding = hardwareDecoding
         self.subtitleLanguage = subtitleLanguage
@@ -48,6 +54,9 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         self.openSubtitlesAPIKey = openSubtitlesAPIKey
         self.hideChromeWhilePlaying = hideChromeWhilePlaying
         self.chromeHideDelay = Self.clampedHideDelay(chromeHideDelay)
+        self.clickToPause = clickToPause
+        self.scrollAdjustsVolume = scrollAdjustsVolume
+        self.scrollSeeks = scrollSeeks
     }
 
     public static let `default` = PlayerSettings()
@@ -80,6 +89,9 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         case openSubtitlesAPIKey
         case hideChromeWhilePlaying
         case chromeHideDelay
+        case clickToPause
+        case scrollAdjustsVolume
+        case scrollSeeks
     }
 
     public init(from decoder: Decoder) throws {
@@ -97,7 +109,10 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
             subtitlePosition: try container.decodeIfPresent(Double.self, forKey: .subtitlePosition) ?? 100,
             openSubtitlesAPIKey: try container.decodeIfPresent(String.self, forKey: .openSubtitlesAPIKey) ?? "",
             hideChromeWhilePlaying: try container.decodeIfPresent(Bool.self, forKey: .hideChromeWhilePlaying) ?? true,
-            chromeHideDelay: try container.decodeIfPresent(Double.self, forKey: .chromeHideDelay) ?? 3
+            chromeHideDelay: try container.decodeIfPresent(Double.self, forKey: .chromeHideDelay) ?? 3,
+            clickToPause: try container.decodeIfPresent(Bool.self, forKey: .clickToPause) ?? true,
+            scrollAdjustsVolume: try container.decodeIfPresent(Bool.self, forKey: .scrollAdjustsVolume) ?? true,
+            scrollSeeks: try container.decodeIfPresent(Bool.self, forKey: .scrollSeeks) ?? true
         )
     }
 
@@ -116,5 +131,8 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         try container.encode(openSubtitlesAPIKey, forKey: .openSubtitlesAPIKey)
         try container.encode(hideChromeWhilePlaying, forKey: .hideChromeWhilePlaying)
         try container.encode(chromeHideDelay, forKey: .chromeHideDelay)
+        try container.encode(clickToPause, forKey: .clickToPause)
+        try container.encode(scrollAdjustsVolume, forKey: .scrollAdjustsVolume)
+        try container.encode(scrollSeeks, forKey: .scrollSeeks)
     }
 }

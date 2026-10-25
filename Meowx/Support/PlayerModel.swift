@@ -82,6 +82,7 @@ final class PlayerModel {
     var controlsHovered = false
     var topHovered = false
     var menuOpen = false
+    var playlistShown = true
     var fullscreen = false
     var pictureInPicture = false
     var alwaysOnTop = false
@@ -92,6 +93,7 @@ final class PlayerModel {
     var showThumb = false
     var dropTargeted = false
     var urlPrompt = false
+    var timePrompt = false
     var shortcutPrompt = false
     var searchOpen = false
     var errorMessage: String?
@@ -388,11 +390,13 @@ final class PlayerModel {
         guard passGate() else { return }
         muted.toggle()
         engine?.setMuted(muted)
+        flashStatus(muted ? "Muted" : "Volume \(Int(volume.rounded()))%")
     }
 
     func setSpeed(_ value: Double) {
         speed = min(4, max(0.25, value))
         engine?.setSpeed(speed)
+        flashStatus(speed == 1 ? "Speed 1x" : String(format: "Speed %.2gx", speed))
     }
 
     func nudgeSpeed(_ direction: Int) {
@@ -426,19 +430,75 @@ final class PlayerModel {
     func selectSubtitle(_ id: Int) {
         subtitleTrackID = id
         engine?.selectTrack("sid", id: id)
+        let name = id <= 0 ? "Subtitles off" : (subtitleTracks.first { $0.id == id }?.label ?? "Subtitle \(id)")
+        flashStatus(name)
     }
 
     func selectAudio(_ id: Int) {
         audioTrackID = id
         engine?.selectTrack("aid", id: id)
+        let name = audioTracks.first { $0.id == id }?.label ?? "Audio \(id)"
+        flashStatus(name)
     }
 
     func nudgeSubDelay(_ delta: Double) {
         subDelay = engine?.nudge("sub-delay", by: delta) ?? (subDelay + delta)
+        flashStatus(String(format: "Subtitle delay %+.1f s", subDelay))
     }
 
     func nudgeAudioDelay(_ delta: Double) {
         audioDelay = engine?.nudge("audio-delay", by: delta) ?? (audioDelay + delta)
+        flashStatus(String(format: "Audio delay %+.1f s", audioDelay))
+    }
+
+    func nudgeSubtitleSize(_ delta: Double) {
+        updateSettings { $0.subtitleSize = min(96, max(18, $0.subtitleSize + delta)) }
+        flashStatus("Subtitle size \(Int(settings.subtitleSize.rounded()))")
+    }
+
+    func applyPointerScroll(deltaX: Double, deltaY: Double, precise: Bool, momentum: Bool) {
+        let action = ScrollAction.interpret(
+            deltaX: deltaX,
+            deltaY: deltaY,
+            precise: precise,
+            momentum: momentum,
+            volumeEnabled: settings.scrollAdjustsVolume,
+            seekEnabled: settings.scrollSeeks
+        )
+        if action.volumeDelta != 0 {
+            setVolume(volume + action.volumeDelta)
+            flashStatus(muted ? "Muted" : "Volume \(Int(volume.rounded()))%")
+        }
+        if action.seekDelta != 0 {
+            engine?.seekRelative(action.seekDelta)
+            position = max(0, position + action.seekDelta)
+            let whole = Int(action.seekDelta.rounded())
+            flashStatus(whole >= 0 ? "Seek +\(whole) s" : "Seek \(whole) s")
+        }
+        if action.volumeDelta != 0 || action.seekDelta != 0 { poke() }
+    }
+
+    func jumpToTime(_ text: String) {
+        guard let seconds = TimeJump.seconds(from: text) else {
+            flashStatus("Could not read that time")
+            return
+        }
+        seek(to: seconds, exact: true)
+        timePrompt = false
+        flashStatus("Jumped to \(TimeFormat.string(seconds))")
+    }
+
+    func copyCurrentLocation() {
+        guard let url = playlist.current?.url else { return }
+        let text = url.isFileURL ? url.path : url.absoluteString
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        flashStatus("Copied")
+    }
+
+    func flashStatus(_ text: String) {
+        showStatus(text)
+        poke()
     }
 
     func setLoopA() {
@@ -543,7 +603,7 @@ final class PlayerModel {
             hasVideo: showsVideo,
             scrubbing: scrubbing,
             pointerOverControls: controlsHovered || topHovered,
-            overlayOpen: urlPrompt || shortcutPrompt || searchOpen || menuOpen,
+            overlayOpen: urlPrompt || timePrompt || shortcutPrompt || searchOpen || menuOpen,
             secondsSinceActivity: Date().timeIntervalSince(lastPoke),
             hideAfter: settings.chromeHideDelay,
             showingError: errorMessage != nil || engineError != nil
@@ -594,6 +654,9 @@ final class PlayerModel {
         subDelay = 0
         audioDelay = 0
         position = 0
+        if item.url.isFileURL {
+            NSDocumentController.shared.noteNewRecentDocumentURL(item.url)
+        }
         engine?.load(item.url)
         play()
     }

@@ -52,6 +52,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             model.next()
             return true
         }
+        if command && !shift && event.keyCode == 38 {
+            model.timePrompt = true
+            return true
+        }
         if command { return false }
         switch event.keyCode {
         case 49: model.togglePause()

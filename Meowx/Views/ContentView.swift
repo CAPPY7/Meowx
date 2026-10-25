@@ -28,8 +28,14 @@ struct ContentView: View {
                 columns = .detailOnly
             }
         }
+        .onChange(of: model.playlistShown) { _, shown in
+            let next: NavigationSplitViewVisibility = shown ? .all : .detailOnly
+            columnsBeforeHide = next
+            if model.chromeShown { columns = next }
+        }
         .onDrop(of: [.fileURL, .url], isTargeted: $model.dropTargeted, perform: drop)
         .sheet(isPresented: $model.urlPrompt) { URLSheet(model: model) }
+        .sheet(isPresented: $model.timePrompt) { TimeSheet(model: model) }
         .sheet(isPresented: $model.shortcutPrompt) { ShortcutSheet() }
         .sheet(isPresented: $model.searchOpen) { SubtitleSearchSheet(model: model) }
         .alert("Can't play this", isPresented: errorPresented) {
@@ -52,28 +58,26 @@ struct ContentView: View {
             if model.playlist.current == nil {
                 emptyState
             } else if !model.showsVideo {
-                audioStage
+                audioStage.allowsHitTesting(false)
             }
             if model.opening || model.buffering {
-                loading
+                loading.allowsHitTesting(false)
             }
             if let status = model.statusText {
                 statusBadge(status)
             }
             if model.statsVisible {
-                StatsOverlay(model: model)
-            }
-            if model.chromeShown {
-                VStack(spacing: 0) {
-                    topBar
-                    Spacer()
-                    controls
-                }
-                .transition(.opacity)
+                StatsOverlay(model: model).allowsHitTesting(false)
             }
             if model.dropTargeted {
                 dropOverlay
             }
+        }
+        .overlay(alignment: .top) {
+            if model.chromeShown { topBar }
+        }
+        .overlay(alignment: .bottom) {
+            if model.chromeShown { controls }
         }
         .animation(.easeInOut(duration: 0.2), value: model.chromeShown)
         .background(Color.black)
@@ -209,8 +213,7 @@ struct ContentView: View {
     }
 
     private func togglePlaylist() {
-        columns = columns == .detailOnly ? .all : .detailOnly
-        columnsBeforeHide = columns
+        model.playlistShown.toggle()
     }
 
     private var dropOverlay: some View {

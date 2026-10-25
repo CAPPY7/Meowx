@@ -9,6 +9,9 @@ struct SettingsView: View {
         Form {
             Toggle("Hardware decoding", isOn: binding(\.hardwareDecoding))
             Toggle("Hide title bar and controls while playing", isOn: binding(\.hideChromeWhilePlaying))
+            Toggle("Click the video to play or pause", isOn: binding(\.clickToPause))
+            Toggle("Scroll wheel changes volume", isOn: binding(\.scrollAdjustsVolume))
+            Toggle("Horizontal scroll seeks", isOn: binding(\.scrollSeeks))
             LabeledContent("Hide after") {
                 VStack(alignment: .trailing) {
                     Slider(value: binding(\.chromeHideDelay), in: 1...10, step: 0.5)
@@ -137,6 +140,29 @@ struct URLSheet: View {
         }
         .padding(20)
         .frame(width: 460)
+    }
+}
+
+struct TimeSheet: View {
+    var model: PlayerModel
+    @State private var text = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Go to Time")
+                .font(.title3.weight(.semibold))
+            TextField("90, 1:23, or 1:02:03", text: $text)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit { model.jumpToTime(text) }
+            HStack {
+                Spacer()
+                Button("Cancel") { model.timePrompt = false }
+                Button("Go") { model.jumpToTime(text) }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 360)
     }
 }
 

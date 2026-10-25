@@ -1,4 +1,6 @@
 import AppKit
+import MeowxCore
+import os
 
 final class FrameFlag: @unchecked Sendable {
     private let lock = NSLock()
@@ -85,6 +87,10 @@ final class MPVVideoView: NSView, NSTouchBarDelegate {
     weak var controller: MPVController?
     private var displayLink: CADisplayLink?
     private var playItem: NSButtonTouchBarItem?
+    private var click = PendingClick()
+    private var clickWork: DispatchWorkItem?
+    private var downPoint: NSPoint?
+    private let uiLog = Logger(subsystem: "com.cappy7.meowx", category: "ui")
     private let playID = NSTouchBarItem.Identifier("com.cappy7.meowx.play")
     private let previousID = NSTouchBarItem.Identifier("com.cappy7.meowx.previous")
     private let nextID = NSTouchBarItem.Identifier("com.cappy7.meowx.next")
@@ -119,6 +125,65 @@ final class MPVVideoView: NSView, NSTouchBarDelegate {
         super.viewDidChangeBackingProperties()
         glLayer.contentsScale = window?.backingScaleFactor ?? 2
         markFramePending()
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        uiLog.info("context menu requested")
+        PlayerModel.shared.poke()
+        return VideoContextMenu.make()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        downPoint = event.locationInWindow
+        PlayerModel.shared.poke()
+        if event.clickCount >= 2 {
+            clickWork?.cancel()
+            _ = click.secondClick()
+            uiLog.info("double click full screen")
+            PlayerModel.shared.toggleFullscreen()
+            return
+        }
+        click.firstClick(pauseEnabled: PlayerModel.shared.settings.clickToPause)
+        clickWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            if self.click.fireIfStillPending() == .togglePause {
+                self.uiLog.info("single click pause")
+                PlayerModel.shared.togglePause()
+            }
+        }
+        clickWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let downPoint else { return }
+        let point = event.locationInWindow
+        let moved = hypot(point.x - downPoint.x, point.y - downPoint.y)
+        guard moved > 4 else { return }
+        clickWork?.cancel()
+        click.dragged()
+        guard !PlayerModel.shared.fullscreen, let window else { return }
+        uiLog.info("drag window from video")
+        window.performDrag(with: event)
+    }
+
+    override func otherMouseDown(with event: NSEvent) {
+        guard event.buttonNumber == 2 else { return }
+        uiLog.info("middle click mute")
+        PlayerModel.shared.toggleMute()
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        let momentum = event.momentumPhase != []
+        PlayerModel.shared.applyPointerScroll(
+            deltaX: event.scrollingDeltaX,
+            deltaY: event.scrollingDeltaY,
+            precise: event.hasPreciseScrollingDeltas,
+            momentum: momentum
+        )
     }
 
     override func layout() {
