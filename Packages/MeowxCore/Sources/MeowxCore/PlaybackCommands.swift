@@ -97,9 +97,8 @@ public enum ChapterNav {
     /// Next or previous chapter. A negative current index means playback is before the first chapter.
     public static func neighbor(current: Int, count: Int, direction: Int) -> Int? {
         guard count > 0, direction != 0 else { return nil }
-        let step = direction > 0 ? 1 : -1
-        let start = current < 0 ? (step > 0 ? -1 : count) : current
-        let next = start + step
+        if current < 0 { return direction > 0 ? 0 : nil }
+        let next = current + (direction > 0 ? 1 : -1)
         guard next >= 0, next < count else { return nil }
         return next
     }
@@ -139,7 +138,7 @@ public enum CropPreset {
     public static let order = ["", "16:9", "4:3", "2.35:1", "1:1"]
 
     public static func next(_ current: String) -> String {
-        let index = order.firstIndex(of: current) ?? -1
+        guard let index = order.firstIndex(of: current) else { return "16:9" }
         return order[(index + 1) % order.count]
     }
 
