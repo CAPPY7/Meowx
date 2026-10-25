@@ -25,6 +25,13 @@ public struct Playlist: Equatable, Sendable {
         return items[currentIndex]
     }
 
+    /// True when another item follows in play order. Wrapping does not count.
+    public func hasFollowingItem() -> Bool {
+        let sequence = playOrder()
+        guard let currentID = current?.id, let position = sequence.firstIndex(of: currentID) else { return false }
+        return position + 1 < sequence.count
+    }
+
     public mutating func append(_ newItems: [PlaylistItem]) {
         guard !newItems.isEmpty else { return }
         let wasEmpty = items.isEmpty

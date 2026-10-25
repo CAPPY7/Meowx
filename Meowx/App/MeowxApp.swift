@@ -85,6 +85,8 @@ struct MeowxCommands: Commands {
             Button(menuTitle("Show or Hide Subtitles", "toggleSubtitleVisibility")) { PlayerModel.shared.toggleSubtitleVisibility() }
             Button(menuTitle("Subtitle Earlier", "subDelayEarlier")) { PlayerModel.shared.nudgeSubDelay(-0.1) }
             Button(menuTitle("Subtitle Later", "subDelayLater")) { PlayerModel.shared.nudgeSubDelay(0.1) }
+            Button(menuTitle("Smaller Subtitles", "subtitleSmaller")) { PlayerModel.shared.nudgeSubtitleSize(-4) }
+            Button(menuTitle("Larger Subtitles", "subtitleLarger")) { PlayerModel.shared.nudgeSubtitleSize(4) }
             Button(menuTitle("Cycle Audio", "cycleAudio")) { PlayerModel.shared.cycleAudio() }
             Button(menuTitle("Previous Audio", "previousAudio")) { PlayerModel.shared.previousAudio() }
             Button(menuTitle("Audio Earlier", "audioDelayEarlier")) { PlayerModel.shared.nudgeAudioDelay(-0.1) }
@@ -109,6 +111,10 @@ struct MeowxCommands: Commands {
             Button(menuTitle("Cycle Crop", "cycleCrop")) { PlayerModel.shared.cycleCrop() }
             Button(menuTitle("Deinterlace", "deinterlace")) { PlayerModel.shared.toggleDeinterlace() }
             Button(menuTitle("Reset Zoom and Pan", "resetZoom")) { PlayerModel.shared.resetZoomAndPan() }
+            Button("Zoom In") { PlayerModel.shared.nudgeZoom(0.1) }
+                .keyboardShortcut("=", modifiers: .command)
+            Button("Zoom Out") { PlayerModel.shared.nudgeZoom(-0.1) }
+                .keyboardShortcut("-", modifiers: .command)
             Button(menuTitle("Picture Adjustments", "picture")) { PlayerModel.shared.togglePicturePanel() }
             Button("Half Size") { PlayerModel.shared.resizeWindow(scale: 0.5) }
                 .keyboardShortcut("1")
@@ -122,12 +128,17 @@ struct MeowxCommands: Commands {
             Button("Always on Top") { PlayerModel.shared.toggleAlwaysOnTop() }
                 .keyboardShortcut("t", modifiers: .command)
             Button(menuTitle("Stats", "stats")) { PlayerModel.shared.toggleStats() }
+            Button("Media Info") { PlayerModel.shared.showMediaInfo() }
+                .keyboardShortcut("i", modifiers: .command)
             Button("Show in Finder") { PlayerModel.shared.revealCurrent() }
                 .disabled(PlayerModel.shared.playlist.current?.url.isFileURL != true)
             Button("Set as Default Player") { PlayerModel.shared.makeDefaultPlayer() }
         }
         CommandGroup(after: .help) {
             Button("Keyboard Shortcuts") { PlayerModel.shared.shortcutPrompt = true }
+            Button("Check for Updates") { PlayerModel.shared.checkForUpdate(manual: true) }
+            Button("Copy Diagnostics") { PlayerModel.shared.copyDiagnostics() }
+            Button("Show Logs") { PlayerModel.shared.logsOpen = true }
         }
     }
 

@@ -143,6 +143,8 @@ struct ControlsView: View {
                 .shortcutTip("stats")
             Button("Go to Time…") { model.timePrompt = true }
                 .shortcutTip("jump")
+            Button("Media Info") { model.showMediaInfo() }
+                .help("Container, tracks, bitrate, and path (Cmd+I)")
             Divider()
             Menu("Chapters") {
                 Button("Previous Chapter") { model.stepChapter(-1) }
@@ -164,7 +166,30 @@ struct ControlsView: View {
                 Button("Cycle Crop") { model.cycleCrop() }
                 Button("Deinterlace") { model.toggleDeinterlace() }
                 Button("Reset Zoom and Pan") { model.resetZoomAndPan() }
+                Button("Zoom In") { model.nudgeZoom(0.1) }
+                    .help("Zoom in (Cmd+=)")
+                Button("Zoom Out") { model.nudgeZoom(-0.1) }
+                    .help("Zoom out (Cmd+-)")
+                Button("Smaller Subtitles") { model.nudgeSubtitleSize(-4) }
+                    .help("Smaller subtitles (-)")
+                Button("Larger Subtitles") { model.nudgeSubtitleSize(4) }
+                    .help("Larger subtitles (=)")
             }
+            Divider()
+            Button(model.stopAfter == .none ? "Stop After Off" : (model.stopAfter == .file ? "Stop After This Video" : "Stop After Playlist")) {
+                let next: StopAfter = model.stopAfter == .none ? .file : (model.stopAfter == .file ? .playlist : .none)
+                model.setStopAfter(next)
+            }
+            .help("Cycle: keep playing, stop after this video, stop after this playlist")
+            Menu("Sleep Timer") {
+                Button("Off") { model.updateSettings { $0.sleepMinutes = 0 } }
+                Button("15 minutes") { model.updateSettings { $0.sleepMinutes = 15 } }
+                Button("30 minutes") { model.updateSettings { $0.sleepMinutes = 30 } }
+                Button("45 minutes") { model.updateSettings { $0.sleepMinutes = 45 } }
+                Button("60 minutes") { model.updateSettings { $0.sleepMinutes = 60 } }
+                Button("90 minutes") { model.updateSettings { $0.sleepMinutes = 90 } }
+            }
+            .help("Pause playback after a while. It turns off when it fires.")
         } label: {
             Image(systemName: "ellipsis")
         }

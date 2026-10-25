@@ -26,6 +26,8 @@ struct ContentView: View {
         .sheet(isPresented: $model.timePrompt) { TimeSheet(model: model) }
         .sheet(isPresented: $model.shortcutPrompt) { ShortcutSheet() }
         .sheet(isPresented: $model.searchOpen) { SubtitleSearchSheet(model: model) }
+        .sheet(isPresented: $model.infoOpen) { MediaInfoSheet(model: model) }
+        .sheet(isPresented: $model.logsOpen) { LogsSheet(model: model) }
         .alert("Playback engine", isPresented: enginePresented) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -73,6 +75,22 @@ struct ContentView: View {
             .animation(Theme.fade(reduceMotion), value: model.chromeShown)
             .animation(Theme.fade(reduceMotion), value: model.statusText)
             .animation(Theme.fade(reduceMotion), value: model.actionGlyph)
+        }
+        .overlay(alignment: .topLeading) {
+            if let offer = model.updateOffer, let url = URL(string: "https://github.com/Cappy7/Meowx/releases/latest") {
+                Link(destination: url) {
+                    Text("Update \(offer) available")
+                        .font(Theme.captionStrong)
+                        .foregroundStyle(Theme.ink)
+                        .padding(.horizontal, Theme.s12)
+                        .padding(.vertical, Theme.s8)
+                        .meowxPill()
+                }
+                .buttonStyle(.plain)
+                .help("Open the latest Meowx release. Nothing is installed for you.")
+                .padding(.top, model.chromeShown ? 72 : Theme.s12)
+                .padding(.leading, model.fullscreen ? Theme.s16 : model.trafficInset + Theme.s16)
+            }
         }
         .overlay(alignment: .bottom) {
             controls
@@ -183,6 +201,8 @@ struct ContentView: View {
             Button("Show in Finder") { model.revealCurrent() }
                 .disabled(model.playlist.current?.url.isFileURL != true)
             Button("Keyboard Shortcuts") { model.shortcutPrompt = true }
+            Button("Media Info") { model.showMediaInfo() }
+                .help("Container, tracks, bitrate, and path (Cmd+I)")
         } label: {
             Image(systemName: "ellipsis")
         }

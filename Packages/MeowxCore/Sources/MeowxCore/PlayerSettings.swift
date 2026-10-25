@@ -68,15 +68,6 @@ public struct KeyBinding: Codable, Equatable, Sendable {
     }
 }
 
-public enum AudioChain {
-    public static func filter(normalize: Bool, compress: Bool) -> String {
-        var parts: [String] = []
-        if normalize { parts.append("dynaudnorm") }
-        if compress { parts.append("lavfi=[acompressor]") }
-        return parts.joined(separator: ",")
-    }
-}
-
 public enum EndChoice {
     /// Repeat-one still replays the current file. Play-next is what starts a different file.
     public static func shouldAdvance(playNext: Bool, repeatMode: RepeatMode) -> Bool {
@@ -133,6 +124,10 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
     public var subtitleEncoding: String
     public var verboseLog: Bool
     public var shortcutOverrides: [String: KeyBinding]
+    public var equalizer: [Double]
+    public var checkForUpdates: Bool
+    public var includePathsInLogs: Bool
+    public var sleepMinutes: Int
 
     public init(
         hardwareDecoding: Bool = true,
@@ -177,7 +172,11 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         subtitleDelayDefault: Double = 0,
         subtitleEncoding: String = "auto",
         verboseLog: Bool = false,
-        shortcutOverrides: [String: KeyBinding] = [:]
+        shortcutOverrides: [String: KeyBinding] = [:],
+        equalizer: [Double] = [],
+        checkForUpdates: Bool = true,
+        includePathsInLogs: Bool = false,
+        sleepMinutes: Int = 0
     ) {
         self.hardwareDecoding = hardwareDecoding
         self.subtitleLanguage = subtitleLanguage
@@ -222,6 +221,19 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         self.subtitleEncoding = subtitleEncoding.isEmpty ? "auto" : subtitleEncoding
         self.verboseLog = verboseLog
         self.shortcutOverrides = shortcutOverrides
+        self.equalizer = Self.tenBands(equalizer)
+        self.checkForUpdates = checkForUpdates
+        self.includePathsInLogs = includePathsInLogs
+        self.sleepMinutes = [0, 15, 30, 45, 60, 90].contains(sleepMinutes) ? sleepMinutes : 0
+    }
+
+    public static func tenBands(_ values: [Double]) -> [Double] {
+        var next = values.prefix(10).map { value -> Double in
+            guard value.isFinite else { return 0 }
+            return min(12, max(-12, value))
+        }
+        while next.count < 10 { next.append(0) }
+        return Array(next)
     }
 
     public static let `default` = PlayerSettings()
@@ -301,6 +313,10 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         case subtitleEncoding
         case verboseLog
         case shortcutOverrides
+        case equalizer
+        case checkForUpdates
+        case includePathsInLogs
+        case sleepMinutes
     }
 
     public init(from decoder: Decoder) throws {
@@ -348,7 +364,11 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
             subtitleDelayDefault: try container.decodeIfPresent(Double.self, forKey: .subtitleDelayDefault) ?? 0,
             subtitleEncoding: try container.decodeIfPresent(String.self, forKey: .subtitleEncoding) ?? "auto",
             verboseLog: try container.decodeIfPresent(Bool.self, forKey: .verboseLog) ?? false,
-            shortcutOverrides: try container.decodeIfPresent([String: KeyBinding].self, forKey: .shortcutOverrides) ?? [:]
+            shortcutOverrides: try container.decodeIfPresent([String: KeyBinding].self, forKey: .shortcutOverrides) ?? [:],
+            equalizer: try container.decodeIfPresent([Double].self, forKey: .equalizer) ?? [],
+            checkForUpdates: try container.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? true,
+            includePathsInLogs: try container.decodeIfPresent(Bool.self, forKey: .includePathsInLogs) ?? false,
+            sleepMinutes: try container.decodeIfPresent(Int.self, forKey: .sleepMinutes) ?? 0
         )
     }
 
@@ -397,5 +417,9 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         try container.encode(subtitleEncoding, forKey: .subtitleEncoding)
         try container.encode(verboseLog, forKey: .verboseLog)
         try container.encode(shortcutOverrides, forKey: .shortcutOverrides)
+        try container.encode(equalizer, forKey: .equalizer)
+        try container.encode(checkForUpdates, forKey: .checkForUpdates)
+        try container.encode(includePathsInLogs, forKey: .includePathsInLogs)
+        try container.encode(sleepMinutes, forKey: .sleepMinutes)
     }
 }

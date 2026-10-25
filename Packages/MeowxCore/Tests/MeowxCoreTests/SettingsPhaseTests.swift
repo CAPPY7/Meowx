@@ -31,8 +31,9 @@ final class SettingsPhaseTests: XCTestCase {
         XCTAssertFalse(EndChoice.shouldAdvance(playNext: false, repeatMode: .off))
         XCTAssertTrue(EndChoice.shouldAdvance(playNext: false, repeatMode: .one))
         XCTAssertTrue(EndChoice.shouldAdvance(playNext: true, repeatMode: .off))
-        XCTAssertEqual(AudioChain.filter(normalize: true, compress: true), "dynaudnorm,lavfi=[acompressor]")
-        XCTAssertEqual(AudioChain.filter(normalize: false, compress: false), "")
+        XCTAssertEqual(AudioChain.filter(normalize: true, night: true), "lavfi=[dynaudnorm],lavfi=[acompressor=threshold=0.1:ratio=6:attack=20:release=200:makeup=2]")
+        XCTAssertEqual(AudioChain.filter(normalize: false, night: false), "")
+        XCTAssertNil(AudioChain.equalizer(Array(repeating: 0, count: 10)))
     }
 
     func testShortcutOverridesWinAndConflictsAreNamed() {

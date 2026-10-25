@@ -5,6 +5,7 @@ import SwiftUI
 struct SettingsView: View {
     @State private var model = PlayerModel.shared
     @State private var devices: [(id: String, name: String)] = []
+    @State private var bandsOpen = true
 
     var body: some View {
         TabView {
@@ -39,9 +40,13 @@ struct SettingsView: View {
             Toggle("Quit when the window closes", isOn: binding(\.quitWhenWindowCloses))
             Toggle("Resize window to the video when a file opens", isOn: binding(\.resizeToVideoOnOpen))
             Button("Set as Default Player") { model.makeDefaultPlayer() }
-            Text("Checking for updates is not built yet.")
-                .font(Theme.caption)
-                .foregroundStyle(Theme.secondary)
+            Toggle("Check for updates on launch", isOn: binding(\.checkForUpdates))
+                .help("Asks GitHub if a newer release exists. Nothing is installed for you.")
+            Button("Check Now") { model.checkForUpdate(manual: true) }
+                .help("Check the GitHub releases page now")
+            if let offer = model.updateOffer, let url = URL(string: "https://github.com/Cappy7/Meowx/releases/latest") {
+                Link("Update \(offer) available", destination: url)
+            }
         }
         .formStyle(.grouped)
     }
@@ -73,7 +78,22 @@ struct SettingsView: View {
             Stepper(value: binding(\.seekLong), in: 1...120, step: 1) {
                 Text("Long seek \(Int(model.settings.seekLong)) s")
             }
-            note("Arrow keys use the short step. Shift uses the long step. The side buttons and a side double-click use the medium step. Applies now.")
+            Picker("Sleep timer", selection: binding(\.sleepMinutes)) {
+                Text("Off").tag(0)
+                Text("15 minutes").tag(15)
+                Text("30 minutes").tag(30)
+                Text("45 minutes").tag(45)
+                Text("60 minutes").tag(60)
+                Text("90 minutes").tag(90)
+            }
+            .help("Pauses playback when the time is up, then turns itself off.")
+            Picker("Stop after", selection: Binding(get: { model.stopAfter }, set: { model.setStopAfter($0) })) {
+                Text("Keep playing").tag(StopAfter.none)
+                Text("This video").tag(StopAfter.file)
+                Text("This playlist").tag(StopAfter.playlist)
+            }
+            .help("This video stops at the next ending. This playlist finishes the remaining items without wrapping.")
+            note("Arrow keys use the short step. Shift uses the long step. The side buttons and a side double-click use the medium step. Sleep and stop-after apply now.")
         }
         .formStyle(.grouped)
     }
@@ -121,13 +141,55 @@ struct SettingsView: View {
                     Text(device.name).tag(device.id)
                 }
             }
+            .help("Audio output device from mpv")
             Button("Refresh devices") { refreshDevices() }
             Toggle("Normalize loudness", isOn: binding(\.loudnessNormalize))
-            Toggle("Compressor", isOn: binding(\.audioCompressor))
+                .help("Even out volume with dynaudnorm")
+            Toggle("Night mode", isOn: binding(\.audioCompressor))
+                .help("Compress loud peaks so quieter parts stay audible")
+            DisclosureGroup("10-band equalizer", isExpanded: $bandsOpen) {
+                Picker("Preset", selection: Binding<EqualizerPreset?>(
+                    get: { EqualizerPreset.allCases.first { $0.gains == model.settings.equalizer } },
+                    set: { preset in
+                        guard let preset else { return }
+                        model.updateSettings { $0.equalizer = preset.gains }
+                    }
+                )) {
+                    Text("Custom").tag(Optional<EqualizerPreset>.none)
+                    ForEach(EqualizerPreset.allCases, id: \.self) { preset in
+                        Text(preset.rawValue.capitalized).tag(Optional(preset))
+                    }
+                }
+                ForEach(0..<10, id: \.self) { index in
+                    LabeledContent(bandTitle(index)) {
+                        HStack {
+                            Slider(
+                                value: Binding(
+                                    get: { model.settings.equalizer.indices.contains(index) ? model.settings.equalizer[index] : 0 },
+                                    set: { value in
+                                        model.updateSettings { settings in
+                                            var bands = PlayerSettings.tenBands(settings.equalizer)
+                                            bands[index] = value
+                                            settings.equalizer = bands
+                                        }
+                                    }
+                                ),
+                                in: -12...12,
+                                step: 0.5
+                            )
+                            Text(gainText(model.settings.equalizer.indices.contains(index) ? model.settings.equalizer[index] : 0))
+                                .font(Theme.digits)
+                                .frame(width: 64, alignment: .trailing)
+                        }
+                    }
+                }
+                Button("Reset") { model.updateSettings { $0.equalizer = EqualizerPreset.flat.gains } }
+                    .help("Set every band back to 0 dB")
+            }
             TextField("Preferred audio languages", text: binding(\.audioLanguage))
                 .help("Comma-separated codes, for example ja,en")
             Toggle("Remember volume", isOn: binding(\.rememberVolume))
-            note("The device, normalization, compressor, and languages apply now. An equalizer is not built yet.")
+            note("The device, night mode, normalization, and equalizer apply now. A flat equalizer is not sent to mpv.")
         }
         .formStyle(.grouped)
     }
@@ -195,8 +257,13 @@ struct SettingsView: View {
                 }
             }
             Toggle("Verbose mpv log", isOn: binding(\.verboseLog))
+            Toggle("Include file paths in diagnostics", isOn: binding(\.includePathsInLogs))
+                .help("Off hides paths and file names from Copy Diagnostics and Show Logs.")
             note("Applies now.")
+            Button("Show Logs") { model.logsOpen = true }
+                .help("Show the recent player log")
             Button("Copy diagnostics") { model.copyDiagnostics() }
+                .help("Copy version, macOS, chip, mpv, decoder, and the last 50 log lines")
             Button("Reset all settings", role: .destructive) { model.resetSettings() }
         }
         .formStyle(.grouped)
@@ -211,6 +278,14 @@ struct SettingsView: View {
     private func refreshDevices() {
         let found = model.audioOutputs()
         devices = found.filter { $0.id != "auto" }
+    }
+
+    private func bandTitle(_ index: Int) -> String {
+        ["31 Hz", "63 Hz", "125 Hz", "250 Hz", "500 Hz", "1 kHz", "2 kHz", "4 kHz", "8 kHz", "16 kHz"][index]
+    }
+
+    private func gainText(_ value: Double) -> String {
+        String(format: "%+.1f dB", value)
     }
 
     private func binding<Value>(_ keyPath: WritableKeyPath<PlayerSettings, Value>) -> Binding<Value> {
@@ -278,6 +353,7 @@ struct ShortcutSettings: View {
                     model.shortcutConflict = nil
                     model.shortcutCaptureID = nil
                 }
+                .help("Clear every shortcut override")
                 Spacer()
             }
         }
@@ -504,5 +580,65 @@ struct StatsOverlay: View {
             Text(name).frame(width: Theme.statsLabel, alignment: .leading).foregroundStyle(Theme.inkTertiary)
             Text(value)
         }
+    }
+}
+
+struct MediaInfoSheet: View {
+    var model: PlayerModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.s12) {
+            Text("Media Info")
+                .font(Theme.title)
+            ScrollView {
+                Text(model.currentFacts().text())
+                    .font(Theme.mono)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            HStack {
+                Button("Copy") { model.copyMediaInfo() }
+                    .help("Copy this media info")
+                Spacer()
+                Button("Close") { model.infoOpen = false }
+                    .keyboardShortcut(.cancelAction)
+            }
+        }
+        .padding(Theme.s24)
+        .frame(width: Theme.sheetMid, height: Theme.sheetMid)
+    }
+}
+
+struct LogsSheet: View {
+    var model: PlayerModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.s12) {
+            Text("Logs")
+                .font(Theme.title)
+            Text(model.settings.includePathsInLogs ? "File paths are included." : "File paths are hidden. Turn that on in Settings > Advanced.")
+                .font(Theme.caption)
+                .foregroundStyle(Theme.secondary)
+            ScrollView {
+                Text(logText)
+                    .font(Theme.mono)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            HStack {
+                Button("Copy") { model.copyLogs() }
+                    .help("Copy the log")
+                Spacer()
+                Button("Close") { model.logsOpen = false }
+                    .keyboardShortcut(.cancelAction)
+            }
+        }
+        .padding(Theme.s24)
+        .frame(width: Theme.sheetMid, height: Theme.sheetMid)
+    }
+
+    private var logText: String {
+        let text = AppLog.shared.recent(limit: 200, includePaths: model.settings.includePathsInLogs)
+        return text.isEmpty ? "No log lines yet." : text
     }
 }

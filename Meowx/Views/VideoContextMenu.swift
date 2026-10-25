@@ -77,8 +77,8 @@ enum VideoContextMenu {
         subs.addItem(item("Delay Earlier", key: "z", action: #selector(VideoMenuActions.subEarlier)))
         subs.addItem(item("Delay Later", key: "x", action: #selector(VideoMenuActions.subLater)))
         subs.addItem(disabled("Size \(Int(model.settings.subtitleSize.rounded()))"))
-        subs.addItem(item("Size Smaller", action: #selector(VideoMenuActions.sizeSmaller)))
-        subs.addItem(item("Size Larger", action: #selector(VideoMenuActions.sizeLarger)))
+        subs.addItem(item("Size Smaller", key: "-", action: #selector(VideoMenuActions.sizeSmaller)))
+        subs.addItem(item("Size Larger", key: "=", action: #selector(VideoMenuActions.sizeLarger)))
         menu.addItem(submenu("Subtitles", subs))
 
         let video = NSMenu()
@@ -89,6 +89,8 @@ enum VideoContextMenu {
         video.addItem(submenu("Crop", cropMenu(model)))
         video.addItem(item("Deinterlace", key: "d", state: model.deinterlace ? .on : .off, action: #selector(VideoMenuActions.deinterlace)))
         video.addItem(item("Reset Zoom and Pan", key: "g", action: #selector(VideoMenuActions.resetZoom)))
+        video.addItem(item("Zoom In", key: "=", modifiers: .command, action: #selector(VideoMenuActions.zoomIn)))
+        video.addItem(item("Zoom Out", key: "-", modifiers: .command, action: #selector(VideoMenuActions.zoomOut)))
         video.addItem(item("Picture Adjustments", key: "c", state: model.pictureOpen ? .on : .off, action: #selector(VideoMenuActions.picture)))
         menu.addItem(submenu("Video", video))
 
@@ -97,6 +99,7 @@ enum VideoContextMenu {
         menu.addItem(item("Always on Top", key: "t", modifiers: .command, state: model.alwaysOnTop ? .on : .off, action: #selector(VideoMenuActions.alwaysOnTop)))
         menu.addItem(item("Screenshot", key: "s", modifiers: [.command, .shift], action: #selector(VideoMenuActions.screenshot)))
         menu.addItem(item("Stats", key: "i", state: model.statsVisible ? .on : .off, action: #selector(VideoMenuActions.stats)))
+        menu.addItem(item("Media Info", key: "i", modifiers: .command, action: #selector(VideoMenuActions.mediaInfo)))
         menu.addItem(.separator())
         if model.playlist.current?.url.isFileURL == true {
             menu.addItem(item("Show in Finder", action: #selector(VideoMenuActions.reveal)))
@@ -267,6 +270,9 @@ final class VideoMenuActions: NSObject {
     @objc func cycleCrop() { PlayerModel.shared.cycleCrop() }
     @objc func deinterlace() { PlayerModel.shared.toggleDeinterlace() }
     @objc func resetZoom() { PlayerModel.shared.resetZoomAndPan() }
+    @objc func zoomIn() { PlayerModel.shared.nudgeZoom(0.1) }
+    @objc func zoomOut() { PlayerModel.shared.nudgeZoom(-0.1) }
+    @objc func mediaInfo() { PlayerModel.shared.showMediaInfo() }
     @objc func picture() { PlayerModel.shared.togglePicturePanel() }
     @objc func previousChapter() { PlayerModel.shared.stepChapter(-1) }
     @objc func nextChapter() { PlayerModel.shared.stepChapter(1) }

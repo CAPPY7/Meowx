@@ -127,6 +127,7 @@ final class MPVController {
             return nil
         }
         started = true
+        mpv_request_log_messages(handle, "warn")
         observe("pause", MPV_FORMAT_FLAG)
         observe("paused-for-cache", MPV_FORMAT_FLAG)
         observe("eof-reached", MPV_FORMAT_FLAG)
@@ -354,7 +355,7 @@ final class MPVController {
         setString("tone-mapping", settings.toneMapping.rawValue)
         setString("audio-device", settings.audioDevice)
         setString("msg-level", settings.verboseLog ? "all=v" : "all=warn")
-        _ = setAudioFilter(AudioChain.filter(normalize: settings.loudnessNormalize, compress: settings.audioCompressor))
+        _ = setAudioFilter(AudioChain.filter(normalize: settings.loudnessNormalize, night: settings.audioCompressor, bands: settings.equalizer))
     }
 
     func snapshot() -> EngineSnapshot {
@@ -475,6 +476,13 @@ final class MPVController {
             }
             if kind == MPV_EVENT_PROPERTY_CHANGE {
                 handleProperty(event)
+            }
+            if kind == MPV_EVENT_LOG_MESSAGE, let raw = event.pointee.data {
+                let message = raw.assumingMemoryBound(to: mpv_event_log_message.self).pointee
+                if let text = message.text {
+                    let line = String(cString: text).trimmingCharacters(in: .newlines)
+                    if !line.isEmpty { AppLog.shared.add(line) }
+                }
             }
         }
     }

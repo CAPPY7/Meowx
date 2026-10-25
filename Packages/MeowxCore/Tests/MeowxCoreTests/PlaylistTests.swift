@@ -119,6 +119,16 @@ final class PlaylistTests: XCTestCase {
         let exported = Playlist.parseM3U(playlist.m3uText(), relativeTo: nil)
         XCTAssertEqual(exported.map(\.title), ["One", "Stream"])
     }
+
+    func testHasFollowingItemIgnoresWrap() {
+        var playlist = Playlist()
+        playlist.append([item("a"), item("b")])
+        XCTAssertTrue(playlist.hasFollowingItem())
+        _ = playlist.skipped(by: 1)
+        XCTAssertFalse(playlist.hasFollowingItem())
+        playlist.repeatMode = .all
+        XCTAssertFalse(playlist.hasFollowingItem())
+    }
 }
 
 struct SplitMix64: RandomNumberGenerator {

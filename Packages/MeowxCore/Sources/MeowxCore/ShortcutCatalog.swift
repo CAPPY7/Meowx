@@ -94,6 +94,8 @@ public struct ShortcutCommand: Equatable, Sendable, Identifiable {
         case "bracketright": return "]"
         case "backslash": return "\\"
         case "slash": return "/"
+        case "minus": return "-"
+        case "equal": return "="
         case "comma": return ","
         case "period": return "."
         default: return token.uppercased()
@@ -138,6 +140,8 @@ public enum ShortcutCatalog {
         ShortcutCommand(id: "toggleSubtitleVisibility", title: "Show or hide subtitles", group: "Subtitles", token: "v"),
         ShortcutCommand(id: "subDelayEarlier", title: "Subtitle delay earlier", group: "Subtitles", token: "z"),
         ShortcutCommand(id: "subDelayLater", title: "Subtitle delay later", group: "Subtitles", token: "x"),
+        ShortcutCommand(id: "subtitleSmaller", title: "Smaller subtitles", group: "Subtitles", token: "minus"),
+        ShortcutCommand(id: "subtitleLarger", title: "Larger subtitles", group: "Subtitles", token: "equal"),
         ShortcutCommand(id: "speedDown", title: "Speed down", group: "Playback", token: "bracketleft"),
         ShortcutCommand(id: "speedUp", title: "Speed up", group: "Playback", token: "bracketright"),
         ShortcutCommand(id: "speedReset", title: "Reset speed", group: "Playback", token: "backslash"),
@@ -154,6 +158,8 @@ public enum ShortcutCatalog {
         ShortcutCommand(id: "cycleCrop", title: "Cycle crop", group: "Video", token: "e", shift: true),
         ShortcutCommand(id: "deinterlace", title: "Deinterlace", group: "Video", token: "d"),
         ShortcutCommand(id: "resetZoom", title: "Reset zoom and pan", group: "Video", token: "g"),
+        ShortcutCommand(id: "zoomIn", title: "Zoom in", group: "Video", token: "equal", command: true),
+        ShortcutCommand(id: "zoomOut", title: "Zoom out", group: "Video", token: "minus", command: true),
         ShortcutCommand(id: "picture", title: "Picture adjustments", group: "Video", token: "c"),
         ShortcutCommand(id: "fullScreen", title: "Full screen", group: "Window", token: "f"),
         ShortcutCommand(id: "fullScreenSystem", title: "Full screen", group: "Window", token: "f", command: true, control: true),
@@ -165,6 +171,7 @@ public enum ShortcutCatalog {
         ShortcutCommand(id: "windowDouble", title: "Window 200%", group: "Window", token: "3", command: true),
         ShortcutCommand(id: "windowFit", title: "Fit window to screen", group: "Window", token: "0", command: true),
         ShortcutCommand(id: "stats", title: "Stats", group: "Window", token: "i"),
+        ShortcutCommand(id: "mediaInfo", title: "Media info", group: "Window", token: "i", command: true),
         ShortcutCommand(id: "shortcuts", title: "Keyboard shortcuts", group: "Window", token: "slash", shift: true),
         ShortcutCommand(id: "open", title: "Open", group: "File", token: "o", command: true),
         ShortcutCommand(id: "openURL", title: "Open URL", group: "File", token: "u", command: true),

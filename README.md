@@ -25,6 +25,15 @@ This repository is the Xcode project. It is not a prebuilt application. Build it
 - Full screen, always on top, and a floating window (P). This is not system Picture in Picture.
 - Seek-bar thumbnail preview
 - Volume to 200% and mute
+- Audio output device picker, loudness normalization (dynaudnorm), and a night-mode compressor
+- 10-band equalizer with Flat, Bass, Voice, and Treble presets. Flat is not sent to mpv. Each band is a lavfi equalizer, from -12 dB to 12 dB
+- Media Info (Cmd+I): container, tracks, codecs, bitrate, HDR, hardware decoder, file size, and path, with Copy
+- Update check on launch, and Help > Check for Updates. A pill links to the latest GitHub release. Nothing is installed automatically. Offline checks stay quiet
+- Help > Copy Diagnostics and Help > Show Logs. Paths are hidden unless Settings > Advanced includes them
+- Sleep timer (15–90 minutes) and stop after this video or the rest of the playlist
+- Continue Watching on the home screen, plus per-file memory of the audio track, subtitle track, subtitle delay, and zoom
+- Shortcut rebinding in Settings > Shortcuts, with a conflict warning and Restore defaults
+- Subtitle size on `-` and `=`, speed presets in the speed popover, and a chapter list in Playback, More, and the right-click menu
 - Menu commands and keyboard shortcuts
 - Touch Bar and media keys through Now Playing
 - Stats overlay (decoder, resolution, fps, dropped frames, bitrate, cache)
@@ -118,6 +127,8 @@ These rows are the same list the app uses for keys, tooltips, and Help > Keyboar
 | V | Show or hide subtitles |
 | Z | Subtitle delay earlier |
 | X | Subtitle delay later |
+| - | Smaller subtitles |
+| = | Larger subtitles |
 | [ | Speed down |
 | ] | Speed up |
 | \ | Reset speed |
@@ -134,6 +145,8 @@ These rows are the same list the app uses for keys, tooltips, and Help > Keyboar
 | Shift+E | Cycle crop |
 | D | Deinterlace |
 | G | Reset zoom and pan |
+| Cmd+- | Zoom out |
+| Cmd+= | Zoom in |
 | C | Picture adjustments |
 | F | Full screen |
 | Ctrl+Cmd+F | Full screen |
@@ -145,6 +158,7 @@ These rows are the same list the app uses for keys, tooltips, and Help > Keyboar
 | Cmd+3 | Window 200% |
 | Cmd+0 | Fit window to screen |
 | I | Stats |
+| Cmd+I | Media info |
 | Cmd+O | Open |
 | Cmd+U | Open URL |
 | Shift+Cmd+O | Add to playlist |

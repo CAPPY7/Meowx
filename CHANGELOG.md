@@ -4,11 +4,12 @@
 
 - New app icon: a white cat head with a play cutout, on a violet-to-indigo gradient. The same glyph is the empty-screen mark and the About window.
 - One design token list for color, type, spacing, corners, and motion. The player window stays dark. Settings and About follow the system. Reduce Motion drops the fades. Reduce Transparency uses a solid surface instead of the thin material.
-- Meowx > About Meowx shows the name, version, GPLv3, and links to the GitHub repo and license. Update checking is not in this build.
+- Meowx > About Meowx shows the name, version, GPLv3, and links to the GitHub repo and license.
 - The video fills the window. Showing or hiding the controls no longer resizes it. The playlist is a panel over the picture, remembered open or closed, and Esc closes it. The top bar clears the real traffic-light buttons instead of a fixed inset.
 - The control bar is a short capsule: clock, seek, volume, back 10, play, forward 10, tracks, speed, more, and full screen. Loop, picture, chapters, video, screenshot, and the floating window are in More. Double-click the sides of the picture to jump 10 seconds. The middle still full-screens.
 - Nothing loaded shows a home screen: drop zone, Open File, Open URL, Paste Link, continue-watching cards, and recent files. Music uses the album art. A file that will not play shows a card with Show in Finder and Remove, instead of an alert.
-- Settings is a tabbed window. Playback, video, audio, and subtitle changes apply immediately. Shortcuts can be rebound, and a taken key is refused. Update checks and an equalizer are not in this version.
+- Settings is a tabbed window. Playback, video, audio, and subtitle changes apply immediately. Shortcuts can be rebound, and a taken key is refused.
+- Audio output device, loudness normalization, night mode, and a 10-band equalizer with presets. Media Info (Cmd+I). Update check with a release pill and no auto-install. Help copies diagnostics and shows logs, with paths hidden unless asked. Sleep timer and stop-after. Per-file audio, subtitle, delay, and zoom memory next to Continue Watching. Subtitle size on `-` and `=`, speed presets, and the chapter list.
 - Controls show a hover and a pressed state, and a focus ring when you tab to them. The seek bar speaks the time and the chapter. Reduce Motion, Reduce Transparency, and Increase Contrast change the chrome in code. The playhead tick no longer rewrites values that did not change, and only the clock and the seek bar read it. English strings live in a String Catalog. Settings and About follow Dark or Match System.
 
 ## 1.0.8

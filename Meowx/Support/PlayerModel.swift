@@ -1,5 +1,6 @@
 import AppKit
 import AVFoundation
+import Darwin
 import MeowxCore
 import Observation
 import os
@@ -13,6 +14,9 @@ final class PlayerModel {
     let videoView = MPVVideoView()
     private(set) var engine: MPVController?
     private let resume = ResumeStore(directory: AppPaths.support)
+    private let trackMemory = TrackMemoryStore(directory: AppPaths.support)
+    private var rememberChoices = true
+    private var pendingMemory = false
     private var started = false
     private var resumeOnLoad = false
     private var timer: Timer?
@@ -85,6 +89,12 @@ final class PlayerModel {
     var fileLoop = false
     var chapters: [MediaChapter] = []
     var chapterIndex = -1
+    var zoom = 0.0
+    var stopAfter: StopAfter = .none
+    var sleepStarted: Date?
+    var updateOffer: String?
+    var infoOpen = false
+    var logsOpen = false
     var flipHorizontal = false
     var flipVertical = false
     var cropPreset = ""
@@ -204,6 +214,8 @@ final class PlayerModel {
         }
         videoView.markFramePending()
         NowPlayingService.shared.install()
+        if settings.sleepMinutes > 0 { sleepStarted = Date() }
+        checkForUpdate(manual: false)
         let timer = Timer(timeInterval: 0.2, repeats: true) { [weak self] _ in
             self?.tick()
         }
@@ -668,6 +680,7 @@ final class PlayerModel {
         engine?.selectTrack("sid", id: id)
         let name = id <= 0 ? "Subtitles off" : (subtitleTracks.first { $0.id == id }?.label ?? "Subtitle \(id)")
         flashStatus(name)
+        rememberFileChoices()
     }
 
     func selectAudio(_ id: Int) {
@@ -675,11 +688,13 @@ final class PlayerModel {
         engine?.selectTrack("aid", id: id)
         let name = audioTracks.first { $0.id == id }?.label ?? "Audio \(id)"
         flashStatus(name)
+        rememberFileChoices()
     }
 
     func nudgeSubDelay(_ delta: Double) {
         subDelay = engine?.nudge("sub-delay", by: delta) ?? (subDelay + delta)
         flashStatus(String(format: "Subtitle delay %+.1f s", subDelay))
+        rememberFileChoices()
     }
 
     func nudgeAudioDelay(_ delta: Double) {
@@ -807,6 +822,11 @@ final class PlayerModel {
         case "open": openFiles(playNow: true)
         case "openURL": urlPrompt = true
         case "pasteLink": pasteLink()
+        case "subtitleSmaller": nudgeSubtitleSize(-4)
+        case "subtitleLarger": nudgeSubtitleSize(4)
+        case "zoomIn": nudgeZoom(0.1)
+        case "zoomOut": nudgeZoom(-0.1)
+        case "mediaInfo": showMediaInfo()
         case "shortcuts": shortcutPrompt = true
         case "addToPlaylist": openFiles(playNow: false)
         case "showPlaylist": togglePlaylist()
@@ -930,10 +950,84 @@ final class PlayerModel {
 
     func resetZoomAndPan() {
         guard allow("video") else { return }
+        zoom = 0
         engine?.setDouble("video-zoom", 0)
         engine?.setDouble("video-pan-x", 0)
         engine?.setDouble("video-pan-y", 0)
         flashStatus("Zoom and pan reset")
+        rememberFileChoices()
+    }
+
+    func nudgeZoom(_ delta: Double) {
+        guard allow("video") else { return }
+        zoom = (min(1, max(-1, zoom + delta)) * 10).rounded() / 10
+        engine?.setDouble("video-zoom", zoom)
+        flashStatus(String(format: "Zoom %+.1f", zoom))
+        rememberFileChoices()
+    }
+
+    func showMediaInfo() {
+        guard playlist.current != nil else {
+            flashStatus("Nothing playing")
+            return
+        }
+        infoOpen = true
+    }
+
+    func setStopAfter(_ value: StopAfter) {
+        stopAfter = value
+        switch value {
+        case .none: flashStatus("Stop after off")
+        case .file: flashStatus("Stop after this video")
+        case .playlist: flashStatus("Stop after this playlist")
+        }
+    }
+
+    func currentFacts() -> MediaFacts {
+        let url = playlist.current?.url
+        let path = url.map { $0.isFileURL ? $0.path : $0.absoluteString } ?? ""
+        let bytes: Int? = {
+            guard let url, url.isFileURL else { return nil }
+            return (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
+        }()
+        let container = engine?.stringProp("file-format") ?? url?.pathExtension ?? ""
+        let videoBit = videoBitrate
+        let audioBit = engine?.doubleProp("audio-bitrate") ?? 0
+        var rates: [String] = []
+        if videoBit > 0 { rates.append("video \(Self.bitRate(videoBit))") }
+        if audioBit > 0 { rates.append("audio \(Self.bitRate(audioBit))") }
+        let picture = videoWidth > 0 && videoHeight > 0 ? "\(videoWidth)x\(videoHeight)" : ""
+        let video = [picture, trackSummary("video", skipArt: true)].filter { !$0.isEmpty }.joined(separator: " ")
+        let hdr: String
+        if showsHDR {
+            hdr = ["yes", videoGamma, videoPrimaries].filter { !$0.isEmpty }.joined(separator: " ")
+        } else {
+            hdr = "no"
+        }
+        return MediaFacts(
+            container: container,
+            path: path,
+            byteCount: bytes,
+            video: video,
+            audio: trackSummary("audio"),
+            subtitles: trackSummary("sub"),
+            bitrate: rates.joined(separator: ", "),
+            hdr: hdr,
+            hardware: hwdec.isEmpty ? "—" : hwdec
+        )
+    }
+
+    func copyMediaInfo() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(currentFacts().text(), forType: .string)
+        flashStatus("Media info copied")
+    }
+
+    func copyLogs() {
+        let text = AppLog.shared.recent(limit: 200, includePaths: settings.includePathsInLogs)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text.isEmpty ? "No log lines yet." : text, forType: .string)
+        flashStatus("Logs copied")
     }
 
     func togglePicturePanel() {
@@ -1135,6 +1229,7 @@ final class PlayerModel {
         copy.seekMedium = PlayerSettings.clampedSeek(copy.seekMedium)
         copy.seekLong = PlayerSettings.clampedSeek(copy.seekLong)
         copy.subtitleOutline = PlayerSettings.clampedOutline(copy.subtitleOutline)
+        copy.equalizer = PlayerSettings.tenBands(copy.equalizer)
         settings = copy
         SettingsStore.save(copy)
         playlist.repeatMode = copy.endBehavior
@@ -1144,9 +1239,27 @@ final class PlayerModel {
             subDelay = copy.subtitleDelayDefault
             engine?.setDouble("sub-delay", subDelay)
         }
+        if copy.sleepMinutes != old.sleepMinutes {
+            sleepStarted = copy.sleepMinutes > 0 ? Date() : nil
+        }
         engine?.apply(copy)
         applyVideoAdjustments()
         evaluateChrome(reason: "settings")
+        if copy.audioDevice != old.audioDevice {
+            flashStatus("Audio output \(audioDeviceLabel(copy.audioDevice))")
+        }
+        if copy.loudnessNormalize != old.loudnessNormalize {
+            flashStatus(copy.loudnessNormalize ? "Loudness normalization on" : "Loudness normalization off")
+        }
+        if copy.audioCompressor != old.audioCompressor {
+            flashStatus(copy.audioCompressor ? "Night mode on" : "Night mode off")
+        }
+        if copy.equalizer != old.equalizer {
+            flashStatus(copy.equalizer.allSatisfy { abs($0) < 0.05 } ? "Equalizer reset" : "Equalizer updated")
+        }
+        if copy.sleepMinutes != old.sleepMinutes {
+            flashStatus(copy.sleepMinutes == 0 ? "Sleep timer off" : "Sleep timer \(copy.sleepMinutes) min")
+        }
     }
 
     func resetSettings() {
@@ -1156,6 +1269,7 @@ final class PlayerModel {
         volume = settings.savedVolume
         engine?.setVolume(volume)
         SettingsStore.save(settings)
+        sleepStarted = nil
         engine?.apply(settings)
         applyVideoAdjustments()
         evaluateChrome(reason: "settings")
@@ -1183,19 +1297,25 @@ final class PlayerModel {
     }
 
     func copyDiagnostics() {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.8"
+        let mpv = engine?.stringProp("mpv-version") ?? "unavailable"
+        let hardware = hwdec.isEmpty ? (settings.hardwareDecoding ? "videotoolbox requested" : "off") : hwdec
         var lines = [
-            "Meowx \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")",
+            "Meowx \(version)",
             ProcessInfo.processInfo.operatingSystemVersionString,
-            "yt-dlp \(ytdlpPath ?? "not installed")",
-            "hardware decoding \(settings.hardwareDecoding)",
-            "cache \(settings.cacheMegabytes) MB",
-            "audio device \(settings.audioDevice)",
-            "tone mapping \(settings.toneMapping.rawValue)"
+            "Chip: \(chipName())",
+            "mpv: \(mpv)",
+            "Hardware decoding: \(hardware)"
         ]
-        if let errorMessage { lines.append("last problem \(errorMessage)") }
-        if let engineError { lines.append(engineError) }
+        let logs = AppLog.shared.recent(limit: 50, includePaths: settings.includePathsInLogs)
+        if !logs.isEmpty {
+            lines.append("Log:")
+            lines.append(logs)
+        }
+        let joined = lines.joined(separator: "\n")
+        let text = settings.includePathsInLogs ? joined : LogPrivacy.redact(joined, includePaths: false)
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
+        NSPasteboard.general.setString(text, forType: .string)
         flashStatus("Diagnostics copied")
     }
 
@@ -1236,7 +1356,7 @@ final class PlayerModel {
             hasVideo: showsVideo,
             scrubbing: scrubbing,
             pointerOverControls: controlsHovered || topHovered,
-            overlayOpen: urlPrompt || timePrompt || shortcutPrompt || searchOpen || menuOpen || pictureOpen || transportOpen,
+            overlayOpen: urlPrompt || timePrompt || shortcutPrompt || searchOpen || menuOpen || pictureOpen || transportOpen || infoOpen || logsOpen,
             secondsSinceActivity: Date().timeIntervalSince(lastPoke),
             hideAfter: settings.chromeHideDelay,
             showingError: errorMessage != nil || engineError != nil
@@ -1296,6 +1416,8 @@ final class PlayerModel {
         aspectOverride = settings.defaultAspect
         deinterlace = settings.deinterlaceOnOpen
         position = 0
+        zoom = 0
+        pendingMemory = true
         chapters = []
         chapterIndex = -1
         loggedChapterCount = -1
@@ -1355,6 +1477,9 @@ final class PlayerModel {
         syncFloatingAspect()
         if tickCount % 5 == 0 { NowPlayingService.shared.update(model: self) }
         if tickCount % 25 == 0 { saveResume() }
+        if SleepPlan.fires(started: sleepStarted, minutes: settings.sleepMinutes, now: Date()) {
+            fireSleepTimer()
+        }
         evaluateChrome(reason: "tick")
     }
 
@@ -1473,6 +1598,7 @@ final class PlayerModel {
         statusProgress = progress
         statusMark = mark
         uiLog.info("osd \(text, privacy: .public)")
+        AppLog.shared.add(text)
         statusToken = UUID()
         let token = statusToken
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
@@ -1596,6 +1722,162 @@ final class PlayerModel {
         return path
     }
 
+    private func fireSleepTimer() {
+        var copy = settings
+        copy.sleepMinutes = 0
+        settings = copy
+        SettingsStore.save(copy)
+        sleepStarted = nil
+        pause()
+        flashStatus("Sleep timer")
+    }
+
+    private func memoryKey() -> String? {
+        guard let url = playlist.current?.url else { return nil }
+        return ResumeStore.key(for: url)
+    }
+
+    private func rememberFileChoices() {
+        guard rememberChoices, let key = memoryKey() else { return }
+        trackMemory.save(
+            TrackMemory(audioID: audioTrackID, subtitleID: subtitleTrackID, subtitleDelay: subDelay, zoom: zoom),
+            for: key
+        )
+    }
+
+    private func restoreFileChoices() {
+        guard pendingMemory, !tracks.isEmpty else { return }
+        guard let key = memoryKey(), let saved = trackMemory.recall(key) else {
+            pendingMemory = false
+            return
+        }
+        rememberChoices = false
+        if let audio = saved.audioID {
+            audioTrackID = audio
+            engine?.selectTrack("aid", id: audio)
+        }
+        if let subtitle = saved.subtitleID {
+            subtitleTrackID = subtitle
+            engine?.selectTrack("sid", id: subtitle)
+        }
+        if let delay = saved.subtitleDelay {
+            subDelay = delay
+            engine?.setDouble("sub-delay", delay)
+        }
+        if let savedZoom = saved.zoom {
+            zoom = savedZoom
+            engine?.setDouble("video-zoom", savedZoom)
+        }
+        rememberChoices = true
+        pendingMemory = false
+    }
+
+    private func handleEndOfFile() {
+        guard endGate.consume(reached: true) else { return }
+        let request = stopAfter
+        if fileLoop, request == .none { return }
+        saveResume()
+        if PlaybackStop.endsHere(request: request, hasNextFile: playlist.hasFollowingItem()) {
+            stopAfter = .none
+            pause()
+            showStatus(request == .file ? "Stopped after this video" : "Stopped after the playlist")
+            evaluateChrome(reason: "eof")
+            return
+        }
+        let savedRepeat = playlist.repeatMode
+        if request == .playlist { playlist.repeatMode = .off }
+        defer { if request == .playlist { playlist.repeatMode = savedRepeat } }
+        guard EndChoice.shouldAdvance(playNext: settings.playNext, repeatMode: playlist.repeatMode) else {
+            pause()
+            showStatus("End")
+            evaluateChrome(reason: "eof")
+            return
+        }
+        switch playlist.afterEndOfFile() {
+        case .play(let item):
+            load(item, resume: playlist.repeatMode != .one)
+        case .stop:
+            pause()
+            showStatus("End")
+            evaluateChrome(reason: "eof")
+        }
+    }
+
+    func checkForUpdate(manual: Bool) {
+        if !manual, !settings.checkForUpdates { return }
+        let local = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.8"
+        Task { [weak self] in
+            let found = await Self.latestReleaseTag()
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                switch found {
+                case .offline:
+                    if manual { self.flashStatus("Couldn't check for updates") }
+                case .missing:
+                    if manual { self.flashStatus("No release found") }
+                case .tag(let tag):
+                    if VersionCompare.isNewer(tag, than: local) {
+                        self.updateOffer = tag
+                        if manual { self.flashStatus("Update \(tag) is available") }
+                    } else {
+                        self.updateOffer = nil
+                        if manual { self.flashStatus("You're up to date") }
+                    }
+                }
+            }
+        }
+    }
+
+    private enum ReleaseLookup {
+        case offline
+        case missing
+        case tag(String)
+    }
+
+    private static func latestReleaseTag() async -> ReleaseLookup {
+        guard let url = URL(string: "https://api.github.com/repos/Cappy7/Meowx/releases/latest") else { return .offline }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 8
+        request.setValue("Meowx", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { return .offline }
+            guard let tag = ReleaseTag.parse(data) else { return .missing }
+            return .tag(tag)
+        } catch {
+            return .offline
+        }
+    }
+
+    private func chipName() -> String {
+        if let brand = Self.sysctlString("machdep.cpu.brand_string"), !brand.isEmpty { return brand }
+        if let model = Self.sysctlString("hw.model"), !model.isEmpty { return model }
+        return "unknown"
+    }
+
+    private static func sysctlString(_ name: String) -> String? {
+        var size = 0
+        guard sysctlbyname(name, nil, &size, nil, 0) == 0, size > 1 else { return nil }
+        var buffer = [CChar](repeating: 0, count: size)
+        guard sysctlbyname(name, &buffer, &size, nil, 0) == 0 else { return nil }
+        return String(cString: buffer).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func audioDeviceLabel(_ id: String) -> String {
+        if id == "auto" || id.isEmpty { return "Auto" }
+        return audioOutputs().first { $0.id == id }?.name ?? id
+    }
+
+    private func trackSummary(_ kind: String, skipArt: Bool = false) -> String {
+        tracks.filter { $0.kind == kind && !(skipArt && $0.albumArt) }.map(\.label).joined(separator: "; ")
+    }
+
+    private static func bitRate(_ bitsPerSecond: Double) -> String {
+        if bitsPerSecond >= 1_000_000 { return String(format: "%.2f Mb/s", bitsPerSecond / 1_000_000) }
+        return String(format: "%.0f kb/s", bitsPerSecond / 1_000)
+    }
+
     @objc private func screenChanged(_ notification: Notification) {
         fullscreen = notification.name == NSWindow.didEnterFullScreenNotification
         uiLog.info("fullscreen \(self.fullscreen ? "enter" : "exit", privacy: .public)")
@@ -1634,6 +1916,7 @@ extension PlayerModel: EngineDelegate {
             }
         }
         loadArtworkIfNeeded()
+        restoreFileChoices()
         NowPlayingService.shared.update(model: self)
         videoView.markFramePending()
         evaluateChrome(reason: "file-loaded")
@@ -1644,6 +1927,7 @@ extension PlayerModel: EngineDelegate {
         case .stop:
             return
         case .error(let message):
+            AppLog.shared.add("playback error: \(message)")
             opening = false
             buffering = false
             errorMessage = "Couldn't play this file. \(message)"
@@ -1652,23 +1936,7 @@ extension PlayerModel: EngineDelegate {
             errorItemID = playlist.current?.id
             evaluateChrome(reason: "error")
         case .eof:
-            guard endGate.consume(reached: true) else { return }
-            if fileLoop { return }
-            saveResume()
-            guard EndChoice.shouldAdvance(playNext: settings.playNext, repeatMode: playlist.repeatMode) else {
-                pause()
-                showStatus("End")
-                evaluateChrome(reason: "eof")
-                return
-            }
-            switch playlist.afterEndOfFile() {
-            case .play(let item):
-                load(item, resume: playlist.repeatMode != .one)
-            case .stop:
-                pause()
-                showStatus("End")
-                evaluateChrome(reason: "eof")
-            }
+            handleEndOfFile()
         }
     }
 
@@ -1685,6 +1953,7 @@ extension PlayerModel: EngineDelegate {
 
     func engineTracksChanged() {
         refreshTracks()
+        restoreFileChoices()
         announceTracksIfNeeded()
         evaluateChrome(reason: "tracks")
     }

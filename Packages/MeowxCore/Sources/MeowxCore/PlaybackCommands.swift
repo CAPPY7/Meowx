@@ -54,6 +54,8 @@ public enum ShortcutKey {
         case 42: return "backslash"
         case 43: return "comma"
         case 44: return "slash"
+        case 27: return "minus"
+        case 24: return "equal"
         case 46: return "m"
         case 47: return "period"
         case 29, 82: return "0"
