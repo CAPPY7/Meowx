@@ -81,7 +81,10 @@ for tool in ffmpeg ffprobe; do
   source_bin="$(command -v "$tool")"
   cp "$source_bin" "$HELPERS/$tool"
   chmod 755 "$HELPERS/$tool"
-  dylibbundler -od -b -x "$HELPERS/$tool" -d "$FRAMEWORKS" -p @executable_path/../Frameworks -s "$SEARCH"
+  # Keep these libraries out of Contents/Frameworks. That folder belongs to
+  # libmpv, and mixing the two ffmpeg builds makes the app abort on launch.
+  mkdir -p "$HELPERS/lib"
+  dylibbundler -od -b -x "$HELPERS/$tool" -d "$HELPERS/lib" -p @executable_path/lib -s "$SEARCH"
   rewrite_rpaths "$HELPERS/$tool"
 done
 
@@ -99,6 +102,12 @@ fi
 while IFS= read -r -d '' lib; do
   codesign --force --sign - "$lib"
 done < <(find "$FRAMEWORKS" -type f \( -name '*.dylib' -o -name '*.so' \) -print0)
+if [[ -d "$HELPERS/lib" ]]; then
+  while IFS= read -r -d '' lib; do
+    rewrite_rpaths "$lib"
+    codesign --force --sign - "$lib"
+  done < <(find "$HELPERS/lib" -type f \( -name '*.dylib' -o -name '*.so' \) -print0)
+fi
 codesign --force --sign - "$HELPERS/yt-dlp" "$HELPERS/ffmpeg" "$HELPERS/ffprobe"
 
 codesign --force --deep --sign - "$APP"
