@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- While a video plays, the title, traffic lights, playlist, and playback controls hide together. A setting controls the delay. Audio files and pause keep the chrome visible.
+
 ## 1.0.3
 
 - Checksum files name `Meowx-<version>.dmg` and `Meowx.dmg` instead of the Actions runner path, so `shasum -a 256 -c` works after download.

@@ -8,6 +8,15 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Toggle("Hardware decoding", isOn: binding(\.hardwareDecoding))
+            Toggle("Hide title bar and controls while playing", isOn: binding(\.hideChromeWhilePlaying))
+            LabeledContent("Hide after") {
+                VStack(alignment: .trailing) {
+                    Slider(value: binding(\.chromeHideDelay), in: 1...10, step: 0.5)
+                    Text("\(model.settings.chromeHideDelay, specifier: "%.1f") seconds")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             TextField("Subtitle languages", text: binding(\.subtitleLanguage))
                 .help("Comma-separated codes, for example en,eng")
             TextField("Audio languages", text: binding(\.audioLanguage))

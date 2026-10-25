@@ -4,18 +4,30 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @State private var model = PlayerModel.shared
+    @State private var columns = NavigationSplitViewVisibility.all
+    @State private var columnsBeforeHide = NavigationSplitViewVisibility.all
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             PlaylistView(model: model)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 280, max: 420)
         } detail: {
             stage
-                .navigationTitle(model.playlist.current == nil ? "Meowx" : model.displayTitle)
-                .toolbar { toolbar }
+                .navigationTitle("")
+                .toolbar(removing: .sidebarToggle)
+                .toolbarVisibility(.hidden, for: .windowToolbar)
         }
         .frame(minWidth: 780, minHeight: 480)
+        .background(WindowChrome(shown: model.chromeShown))
         .onAppear { model.start() }
+        .onChange(of: model.chromeShown) { _, shown in
+            if shown {
+                columns = columnsBeforeHide
+            } else {
+                columnsBeforeHide = columns
+                columns = .detailOnly
+            }
+        }
         .onDrop(of: [.fileURL, .url], isTargeted: $model.dropTargeted, perform: drop)
         .sheet(isPresented: $model.urlPrompt) { URLSheet(model: model) }
         .sheet(isPresented: $model.shortcutPrompt) { ShortcutSheet() }
@@ -51,13 +63,19 @@ struct ContentView: View {
             if model.statsVisible {
                 StatsOverlay(model: model)
             }
-            if model.controlsVisible || model.paused || model.playlist.current == nil {
-                controls
+            if model.chromeShown {
+                VStack(spacing: 0) {
+                    topBar
+                    Spacer()
+                    controls
+                }
+                .transition(.opacity)
             }
             if model.dropTargeted {
                 dropOverlay
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: model.chromeShown)
         .background(Color.black)
         .onContinuousHover { phase in
             if case .active = phase { model.poke() }
@@ -146,14 +164,53 @@ struct ContentView: View {
     }
 
     private var controls: some View {
-        VStack {
-            Spacer()
-            ControlsView(model: model)
-                .padding(12)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-                .padding(12)
-                .onHover { model.controlsHovered = $0 }
+        ControlsView(model: model)
+            .padding(12)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+            .padding(12)
+            .onHover { hovering in
+                model.controlsHovered = hovering
+                model.poke()
+            }
+    }
+
+    private var topBar: some View {
+        HStack(spacing: 10) {
+            Button(action: togglePlaylist) {
+                Image(systemName: "sidebar.left")
+            }
+            .help("Show playlist")
+            Text(model.playlist.current == nil ? "Meowx" : model.displayTitle)
+                .font(.headline)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Button { model.openFiles(playNow: true) } label: { Image(systemName: "folder") }
+                .help("Open")
+            Button { model.urlPrompt = true } label: { Image(systemName: "link") }
+                .help("Open URL")
+            Button { model.openSubtitleFile() } label: { Image(systemName: "captions.bubble") }
+                .help("Add subtitle")
+                .disabled(model.playlist.current == nil)
+            Button { model.toggleStats() } label: { Image(systemName: "gauge.with.dots.needle.67percent") }
+                .help("Stats")
         }
+        .buttonStyle(.borderless)
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal, 12)
+        .padding(.leading, model.fullscreen ? 0 : 68)
+        .padding(.top, model.fullscreen ? 8 : 4)
+        .onHover { hovering in
+            model.topHovered = hovering
+            model.poke()
+        }
+    }
+
+    private func togglePlaylist() {
+        columns = columns == .detailOnly ? .all : .detailOnly
+        columnsBeforeHide = columns
     }
 
     private var dropOverlay: some View {
@@ -167,20 +224,6 @@ struct ContentView: View {
             }
             .padding(16)
             .allowsHitTesting(false)
-    }
-
-    @ToolbarContentBuilder private var toolbar: some ToolbarContent {
-        ToolbarItemGroup {
-            Button { model.openFiles(playNow: true) } label: { Image(systemName: "folder") }
-                .help("Open")
-            Button { model.urlPrompt = true } label: { Image(systemName: "link") }
-                .help("Open URL")
-            Button { model.openSubtitleFile() } label: { Image(systemName: "captions.bubble") }
-                .help("Add subtitle")
-                .disabled(model.playlist.current == nil)
-            Button { model.toggleStats() } label: { Image(systemName: "gauge.with.dots.needle.67percent") }
-                .help("Stats")
-        }
     }
 
     private var errorPresented: Binding<Bool> {

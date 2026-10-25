@@ -1,10 +1,19 @@
 import AppKit
+import os
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private static let uiLog = Logger(subsystem: "com.cappy7.meowx", category: "ui")
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         PlayerModel.shared.start()
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             Self.handle(event) ? nil : event
+        }
+        NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .scrollWheel]) { event in
+            if event.window != nil {
+                PlayerModel.shared.poke()
+            }
+            return event
         }
     }
 
@@ -25,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static func handle(_ event: NSEvent) -> Bool {
         if NSApp.modalWindow != nil { return false }
         if isTyping { return false }
+        PlayerModel.shared.poke()
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.option) || flags.contains(.control) { return false }
         let command = flags.contains(.command)
@@ -66,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         default:
             return false
         }
+        uiLog.debug("shortcut keyCode \(event.keyCode, privacy: .public)")
         return true
     }
 

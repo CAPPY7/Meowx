@@ -35,8 +35,11 @@ final class PlayerModel {
         return true
     }
 
-    private var hideToken = UUID()
     private var statusToken = UUID()
+    private var lastPoke = Date()
+    private var lastHideSchedule = Date.distantPast
+    private var hideWork: DispatchWorkItem?
+    private let uiLog = Logger(subsystem: "com.cappy7.meowx", category: "ui")
     private var activity: NSObjectProtocol?
     private var pipPanel: NSPanel?
     private weak var mainHost: NSView?
@@ -74,8 +77,10 @@ final class PlayerModel {
     var videoBitrate = 0.0
     var cacheSeconds = 0.0
     var statsVisible = false
-    var controlsVisible = true
+    var chromeShown = true
     var controlsHovered = false
+    var topHovered = false
+    var menuOpen = false
     var fullscreen = false
     var pictureInPicture = false
     var alwaysOnTop = false
@@ -124,6 +129,9 @@ final class PlayerModel {
         }
         NotificationCenter.default.addObserver(self, selector: #selector(screenChanged(_:)), name: NSWindow.didEnterFullScreenNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(screenChanged(_:)), name: NSWindow.didExitFullScreenNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(menuBegan(_:)), name: NSMenu.didBeginTrackingNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(menuEnded(_:)), name: NSMenu.didEndTrackingNotification, object: nil)
+        evaluateChrome(reason: "start")
     }
 
     func prepareToQuit() {
@@ -299,7 +307,7 @@ final class PlayerModel {
     func pause() {
         paused = true
         engine?.setPaused(true)
-        controlsVisible = true
+        evaluateChrome(reason: "pause")
         saveResume()
         updateActivity()
         videoView.updateTouchBar()
@@ -344,6 +352,7 @@ final class PlayerModel {
         scrub = value
         engine?.seekAbsolute(value, exact: false)
         requestThumb(at: value)
+        poke()
     }
 
     func endScrub() {
@@ -400,7 +409,7 @@ final class PlayerModel {
         guard allow("frame") else { return }
         engine?.frameStep(backward: backward)
         paused = true
-        controlsVisible = true
+        evaluateChrome(reason: "pause")
     }
 
     func cycleSubtitles() {
@@ -494,26 +503,63 @@ final class PlayerModel {
         var copy = settings
         body(&copy)
         copy.cacheMegabytes = min(4096, max(32, copy.cacheMegabytes))
+        copy.chromeHideDelay = PlayerSettings.clampedHideDelay(copy.chromeHideDelay)
         settings = copy
         SettingsStore.save(copy)
         engine?.apply(copy)
+        evaluateChrome(reason: "settings")
     }
 
     func resetSettings() {
         settings = .default
         SettingsStore.save(settings)
         engine?.apply(settings)
+        evaluateChrome(reason: "settings")
     }
 
     func poke() {
-        controlsVisible = true
-        hideToken = UUID()
-        let token = hideToken
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) { [weak self] in
-            guard let self, self.hideToken == token else { return }
-            guard !self.paused, self.playlist.current != nil, !self.controlsHovered, !self.scrubbing else { return }
-            self.controlsVisible = false
-            if self.fullscreen { NSCursor.setHiddenUntilMouseMoves(true) }
+        lastPoke = Date()
+        if !chromeShown {
+            uiLog.info("activity revealed chrome")
+        }
+        applyChrome(true, reason: "activity")
+        let now = Date()
+        if hideWork != nil, now.timeIntervalSince(lastHideSchedule) < 0.1 { return }
+        lastHideSchedule = now
+        hideWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.evaluateChrome(reason: "timer")
+        }
+        hideWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + settings.chromeHideDelay, execute: work)
+    }
+
+    func evaluateChrome(reason: String) {
+        let state = ChromeState(
+            autoHideEnabled: settings.hideChromeWhilePlaying,
+            paused: paused,
+            mediaLoaded: playlist.current != nil,
+            hasVideo: showsVideo,
+            scrubbing: scrubbing,
+            pointerOverControls: controlsHovered || topHovered,
+            overlayOpen: urlPrompt || shortcutPrompt || searchOpen || menuOpen,
+            secondsSinceActivity: Date().timeIntervalSince(lastPoke),
+            hideAfter: settings.chromeHideDelay,
+            showingError: errorMessage != nil || engineError != nil
+        )
+        applyChrome(state.visible, reason: reason)
+    }
+
+    private func applyChrome(_ shown: Bool, reason: String) {
+        if !shown {
+            controlsHovered = false
+            topHovered = false
+        }
+        guard chromeShown != shown else { return }
+        chromeShown = shown
+        uiLog.info("chrome \(shown ? "show" : "hide", privacy: .public) reason \(reason, privacy: .public)")
+        if !shown {
+            NSCursor.setHiddenUntilMouseMoves(true)
         }
     }
 
@@ -573,6 +619,7 @@ final class PlayerModel {
         tickCount += 1
         if tickCount % 5 == 0 { NowPlayingService.shared.update(model: self) }
         if tickCount % 25 == 0 { saveResume() }
+        evaluateChrome(reason: "tick")
     }
 
     private func saveResume() {
@@ -741,7 +788,20 @@ final class PlayerModel {
 
     @objc private func screenChanged(_ notification: Notification) {
         fullscreen = notification.name == NSWindow.didEnterFullScreenNotification
-        if !fullscreen { controlsVisible = true }
+        uiLog.info("fullscreen \(self.fullscreen ? "enter" : "exit", privacy: .public)")
+        if !fullscreen { poke() } else { evaluateChrome(reason: "fullscreen") }
+    }
+
+    @objc private func menuBegan(_ notification: Notification) {
+        menuOpen = true
+        uiLog.info("menu began")
+        evaluateChrome(reason: "menu")
+    }
+
+    @objc private func menuEnded(_ notification: Notification) {
+        menuOpen = false
+        uiLog.info("menu ended")
+        poke()
     }
 }
 
@@ -761,6 +821,7 @@ extension PlayerModel: EngineDelegate {
         loadArtworkIfNeeded()
         NowPlayingService.shared.update(model: self)
         videoView.markFramePending()
+        evaluateChrome(reason: "file-loaded")
     }
 
     func engineEnded(_ end: EngineEnd) {
@@ -771,6 +832,7 @@ extension PlayerModel: EngineDelegate {
             opening = false
             buffering = false
             errorMessage = message
+            evaluateChrome(reason: "error")
         case .eof:
             saveResume()
             switch playlist.afterEndOfFile() {
@@ -784,7 +846,7 @@ extension PlayerModel: EngineDelegate {
 
     func enginePauseChanged(_ value: Bool) {
         paused = value
-        if paused { controlsVisible = true }
+        if paused { evaluateChrome(reason: "pause") } else { poke() }
         updateActivity()
         videoView.updateTouchBar()
     }
@@ -795,6 +857,7 @@ extension PlayerModel: EngineDelegate {
 
     func engineTracksChanged() {
         refreshTracks()
+        evaluateChrome(reason: "tracks")
     }
 }
 
