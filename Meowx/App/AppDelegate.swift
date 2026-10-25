@@ -216,7 +216,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         guard let shortcut = ShortcutCatalog.match(input) else { return false }
         let model = PlayerModel.shared
-        if shortcut.id == "leaveFullScreen", !model.fullscreen { return false }
+        if shortcut.id == "leaveFullScreen" {
+            if model.playlistShown {
+                model.setPlaylistOpen(false)
+                return true
+            }
+            if !model.fullscreen { return false }
+        }
         uiLog.debug("shortcut \(shortcut.id, privacy: .public)")
         model.performShortcut(shortcut.id)
         return true

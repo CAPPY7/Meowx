@@ -24,6 +24,7 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
     public var scrollSeeks: Bool
     public var quitWhenWindowCloses: Bool
     public var resizeToVideoOnOpen: Bool
+    public var playlistOpen: Bool
 
     public init(
         hardwareDecoding: Bool = true,
@@ -43,7 +44,8 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         scrollAdjustsVolume: Bool = true,
         scrollSeeks: Bool = true,
         quitWhenWindowCloses: Bool = true,
-        resizeToVideoOnOpen: Bool = false
+        resizeToVideoOnOpen: Bool = false,
+        playlistOpen: Bool = true
     ) {
         self.hardwareDecoding = hardwareDecoding
         self.subtitleLanguage = subtitleLanguage
@@ -63,6 +65,7 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         self.scrollSeeks = scrollSeeks
         self.quitWhenWindowCloses = quitWhenWindowCloses
         self.resizeToVideoOnOpen = resizeToVideoOnOpen
+        self.playlistOpen = playlistOpen
     }
 
     public static let `default` = PlayerSettings()
@@ -107,6 +110,7 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         case scrollSeeks
         case quitWhenWindowCloses
         case resizeToVideoOnOpen
+        case playlistOpen
     }
 
     public init(from decoder: Decoder) throws {
@@ -129,7 +133,8 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
             scrollAdjustsVolume: try container.decodeIfPresent(Bool.self, forKey: .scrollAdjustsVolume) ?? true,
             scrollSeeks: try container.decodeIfPresent(Bool.self, forKey: .scrollSeeks) ?? true,
             quitWhenWindowCloses: try container.decodeIfPresent(Bool.self, forKey: .quitWhenWindowCloses) ?? true,
-            resizeToVideoOnOpen: try container.decodeIfPresent(Bool.self, forKey: .resizeToVideoOnOpen) ?? false
+            resizeToVideoOnOpen: try container.decodeIfPresent(Bool.self, forKey: .resizeToVideoOnOpen) ?? false,
+            playlistOpen: try container.decodeIfPresent(Bool.self, forKey: .playlistOpen) ?? true
         )
     }
 
@@ -153,5 +158,6 @@ public struct PlayerSettings: Codable, Equatable, Sendable {
         try container.encode(scrollSeeks, forKey: .scrollSeeks)
         try container.encode(quitWhenWindowCloses, forKey: .quitWhenWindowCloses)
         try container.encode(resizeToVideoOnOpen, forKey: .resizeToVideoOnOpen)
+        try container.encode(playlistOpen, forKey: .playlistOpen)
     }
 }

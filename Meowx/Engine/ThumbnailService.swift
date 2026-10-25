@@ -1,4 +1,5 @@
 import AppKit
+import MeowxCore
 import os
 
 final class ThumbnailService {
@@ -8,12 +9,14 @@ final class ThumbnailService {
     private struct Job {
         var path: String
         var time: Double
+        var hover: Bool
         var completion: (NSImage?) -> Void
     }
 
     private let queue = DispatchQueue(label: "com.cappy7.meowx.thumbnails")
     private let lock = NSLock()
-    private var pending: Job?
+    private var jobs: [Job] = []
+    private var memory: [String: NSImage] = [:]
     private var pumping = false
     private var unavailable = false
     private var mpv: OpaquePointer?
@@ -37,7 +40,61 @@ final class ThumbnailService {
             DispatchQueue.main.async { completion(nil) }
             return
         }
-        pending = Job(path: path, time: time, completion: completion)
+        jobs.removeAll { $0.hover }
+        jobs.insert(Job(path: path, time: time, hover: true, completion: completion), at: 0)
+        let start = !pumping
+        if start { pumping = true }
+        lock.unlock()
+        guard start else { return }
+        queue.async { [weak self] in self?.pump() }
+    }
+
+    /// First frame-ish poster for a local file. The PNG is reused from Application Support.
+    func cachedPoster(for url: URL, completion: @escaping (NSImage?) -> Void) {
+        guard url.isFileURL else {
+            DispatchQueue.main.async { completion(nil) }
+            return
+        }
+        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        let key = ThumbnailCache.key(path: url.path, fileSize: size)
+        lock.lock()
+        if let image = memory[key] {
+            lock.unlock()
+            DispatchQueue.main.async { completion(image) }
+            return
+        }
+        lock.unlock()
+        let file = Self.cacheDirectory.appendingPathComponent(key + ".png")
+        if let image = NSImage(contentsOf: file) {
+            lock.lock()
+            memory[key] = image
+            lock.unlock()
+            DispatchQueue.main.async { completion(image) }
+            return
+        }
+        requestPoster(path: url.path, time: 5) { [weak self] image in
+            guard let self else {
+                completion(nil)
+                return
+            }
+            if let image {
+                Self.write(image, to: file)
+                self.lock.lock()
+                self.memory[key] = image
+                self.lock.unlock()
+            }
+            completion(image)
+        }
+    }
+
+    private func requestPoster(path: String, time: Double, completion: @escaping (NSImage?) -> Void) {
+        lock.lock()
+        if unavailable {
+            lock.unlock()
+            DispatchQueue.main.async { completion(nil) }
+            return
+        }
+        jobs.append(Job(path: path, time: time, hover: false, completion: completion))
         let start = !pumping
         if start { pumping = true }
         lock.unlock()
@@ -50,18 +107,19 @@ final class ThumbnailService {
             lock.lock()
             unavailable = true
             pumping = false
-            let job = pending
-            pending = nil
+            let dropped = jobs
+            jobs.removeAll()
             lock.unlock()
-            if let job {
-                DispatchQueue.main.async { job.completion(nil) }
+            if !dropped.isEmpty {
+                DispatchQueue.main.async {
+                    dropped.forEach { $0.completion(nil) }
+                }
             }
             return
         }
         while true {
             lock.lock()
-            let job = pending
-            pending = nil
+            let job = jobs.isEmpty ? nil : jobs.removeFirst()
             if job == nil {
                 pumping = false
                 lock.unlock()
@@ -125,10 +183,14 @@ final class ThumbnailService {
 
     func shutdown() {
         lock.lock()
-        pending = nil
+        let dropped = jobs
+        jobs.removeAll()
         pumping = false
         unavailable = true
         lock.unlock()
+        DispatchQueue.main.async {
+            dropped.forEach { $0.completion(nil) }
+        }
         queue.sync { teardown() }
         Self.log.info("thumbnail engine shut down")
     }
@@ -224,5 +286,17 @@ final class ThumbnailService {
         let image = NSImage(size: NSSize(width: width, height: height))
         image.addRepresentation(rep)
         return image
+    }
+
+    private static var cacheDirectory: URL {
+        AppPaths.support.appendingPathComponent("Thumbnails", isDirectory: true)
+    }
+
+    private static func write(_ image: NSImage, to url: URL) {
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else { return }
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? png.write(to: url, options: .atomic)
     }
 }

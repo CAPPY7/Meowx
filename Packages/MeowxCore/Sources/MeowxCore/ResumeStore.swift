@@ -38,6 +38,20 @@ public final class ResumeStore: @unchecked Sendable {
         return entries[key]?.position
     }
 
+    public func duration(for key: String) -> Double? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let duration = entries[key]?.duration, duration > 0 else { return nil }
+        return duration
+    }
+
+    public func fraction(for key: String) -> Double? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let entry = entries[key], entry.duration > 0 else { return nil }
+        return min(1, max(0, entry.position / entry.duration))
+    }
+
     /// Saves a resume point. Positions under 3 seconds, unknown durations, and the last 8 seconds are forgotten.
     public func remember(position: Double, duration: Double, for key: String, now: Date = Date()) {
         lock.lock()

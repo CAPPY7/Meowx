@@ -33,6 +33,7 @@ struct WindowChrome: NSViewRepresentable {
             }
             claim(window)
             window.toolbar?.isVisible = false
+            measureTraffic(window)
             guard self.shown != shown else { return }
             self.shown = shown
             log.info("traffic lights \(shown ? "show" : "hide", privacy: .public)")
@@ -47,6 +48,23 @@ struct WindowChrome: NSViewRepresentable {
             window.acceptsMouseMovedEvents = true
             window.toolbar?.isVisible = false
             PlayerModel.shared.attachContentWindow(window)
+            NotificationCenter.default.addObserver(self, selector: #selector(windowChanged(_:)), name: NSWindow.didResizeNotification, object: window)
+            NotificationCenter.default.addObserver(self, selector: #selector(windowChanged(_:)), name: NSWindow.didEnterFullScreenNotification, object: window)
+            NotificationCenter.default.addObserver(self, selector: #selector(windowChanged(_:)), name: NSWindow.didExitFullScreenNotification, object: window)
+            measureTraffic(window)
+        }
+
+        @objc private func windowChanged(_ note: Notification) {
+            guard let window = note.object as? NSWindow else { return }
+            measureTraffic(window)
+        }
+
+        private func measureTraffic(_ window: NSWindow) {
+            let kinds: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+            let maxX = kinds.compactMap { window.standardWindowButton($0) }.map { button in
+                button.convert(button.bounds, to: nil).maxX
+            }.max() ?? 0
+            PlayerModel.shared.noteTrafficInset(buttonMaxX: maxX, fullscreen: window.styleMask.contains(.fullScreen))
         }
 
         private func claim(_ window: NSWindow) {

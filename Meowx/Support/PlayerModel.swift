@@ -96,10 +96,14 @@ final class PlayerModel {
     var audioCodec = ""
     var videoBitrate = 0.0
     var cacheSeconds = 0.0
+    var videoGamma = ""
+    var videoPrimaries = ""
     var statsVisible = false
     var chromeShown = true
     var controlsHovered = false
     var topHovered = false
+    var playlistHovered = false
+    var trafficInset: CGFloat = 0
     var menuOpen = false
     var playlistShown = true
     var fullscreen = false
@@ -125,11 +129,49 @@ final class PlayerModel {
         return playlist.current?.title ?? "Meowx"
     }
 
+    var mediaDetail: String {
+        MediaLine.detail(width: videoWidth, height: videoHeight, codec: videoCodec)
+    }
+
+    var showsHDR: Bool {
+        HDRBadge.isHDR(gamma: videoGamma, primaries: videoPrimaries)
+    }
+
+    func togglePlaylist() {
+        setPlaylistOpen(!playlistShown)
+    }
+
+    func setPlaylistOpen(_ open: Bool) {
+        guard playlistShown != open else { return }
+        playlistShown = open
+        if !open { playlistHovered = false }
+        updateSettings { $0.playlistOpen = open }
+        poke()
+    }
+
+    func noteTrafficInset(buttonMaxX: CGFloat, fullscreen: Bool) {
+        let next = CGFloat(TrafficClearance.inset(buttonMaxX: Double(buttonMaxX), fullscreen: fullscreen))
+        if abs(trafficInset - next) > 0.5 { trafficInset = next }
+    }
+
+    func resumeFraction(for item: PlaylistItem) -> Double {
+        if item.id == playlist.current?.id, duration > 0 {
+            return min(1, max(0, position / duration))
+        }
+        return resume.fraction(for: ResumeStore.key(for: item.url)) ?? 0
+    }
+
+    func rowDuration(_ item: PlaylistItem) -> Double? {
+        if item.id == playlist.current?.id, duration > 0 { return duration }
+        return resume.duration(for: ResumeStore.key(for: item.url))
+    }
+
     var subtitleTracks: [MediaTrack] { tracks.filter { $0.kind == "sub" } }
     var audioTracks: [MediaTrack] { tracks.filter { $0.kind == "audio" } }
 
     private init() {
         settings = SettingsStore.load()
+        playlistShown = settings.playlistOpen
     }
 
     func start() {
@@ -686,6 +728,7 @@ final class PlayerModel {
         case "open": openFiles(playNow: true)
         case "openURL": urlPrompt = true
         case "addToPlaylist": openFiles(playNow: false)
+        case "showPlaylist": togglePlaylist()
         case "seekStart": seekToStart()
         case "seekEnd": seekToEnd()
         case "previousChapter": stepChapter(-1)
@@ -1011,6 +1054,7 @@ final class PlayerModel {
 
     func resetSettings() {
         settings = .default
+        playlistShown = settings.playlistOpen
         SettingsStore.save(settings)
         engine?.apply(settings)
         evaluateChrome(reason: "settings")
@@ -1120,6 +1164,8 @@ final class PlayerModel {
         videoCodec = snap.videoCodec
         audioCodec = snap.audioCodec
         videoBitrate = snap.videoBitrate
+        videoGamma = snap.gamma
+        videoPrimaries = snap.primaries
         cacheSeconds = snap.cacheSeconds
         if videoWidth > 0, videoHeight > 0, (videoWidth, videoHeight) != cropFrame {
             cropFrame = (videoWidth, videoHeight)

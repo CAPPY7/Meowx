@@ -12,6 +12,7 @@ enum Theme {
     static let primary = Color.primary
     static let secondary = Color.secondary
     static let videoBlack = Color.black
+    static let clear = Color.clear
     static let ink = Color.white
     static let inkSoft = Color.white.opacity(0.85)
     static let inkSecondary = Color.white.opacity(0.72)
@@ -71,10 +72,7 @@ enum Theme {
     static let statsLabel: CGFloat = 64
     static let windowMinWidth: CGFloat = 780
     static let windowMinHeight: CGFloat = 480
-    static let playlistMin: CGFloat = 220
-    static let playlistIdeal: CGFloat = 280
-    static let playlistMax: CGFloat = 420
-    static let trafficClearance: CGFloat = 68
+    static let playlistWidth: CGFloat = 320
     static let pictureInset: CGFloat = 56
 
     static func fade(_ reduceMotion: Bool) -> Animation? {
@@ -133,9 +131,25 @@ private struct MeowxSurface: ViewModifier {
     }
 }
 
+private struct MeowxPill: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func body(content: Content) -> some View {
+        if reduceTransparency {
+            content.background(Theme.scrimSolid, in: Capsule())
+        } else {
+            content.background(.ultraThinMaterial, in: Capsule())
+        }
+    }
+}
+
 extension View {
     func meowxSurface(_ radius: CGFloat) -> some View {
         modifier(MeowxSurface(radius: radius))
+    }
+
+    func meowxPill() -> some View {
+        modifier(MeowxPill())
     }
 
     func meowxHit() -> some View {

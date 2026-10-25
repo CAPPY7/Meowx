@@ -286,8 +286,7 @@ final class VideoMenuActions: NSObject {
     @objc func openFiles() { PlayerModel.shared.openFiles(playNow: true) }
     @objc func openURL() { PlayerModel.shared.urlPrompt = true; PlayerModel.shared.poke() }
     @objc func togglePlaylist() {
-        PlayerModel.shared.playlistShown.toggle()
-        PlayerModel.shared.poke()
+        PlayerModel.shared.togglePlaylist()
     }
     @objc func openRecent(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }

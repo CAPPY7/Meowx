@@ -21,7 +21,7 @@ This repository is the Xcode project. It is not a prebuilt application. Build it
 - Multiple audio tracks
 - Open HTTP, HTTPS, HLS, RTSP, and RTMP addresses
 - yt-dlp for site links when you install it yourself (it is not bundled)
-- Playlist sidebar, reorder, and save as `.m3u`
+- Playlist overlay, reorder, search, and save as `.m3u`
 - Full screen, always on top, and a floating window (P). This is not system Picture in Picture.
 - Seek-bar thumbnail preview
 - Volume to 200% and mute

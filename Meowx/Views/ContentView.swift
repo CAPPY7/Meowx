@@ -5,37 +5,22 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @State private var model = PlayerModel.shared
-    @State private var columns = NavigationSplitViewVisibility.all
-    @State private var columnsBeforeHide = NavigationSplitViewVisibility.all
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var playlistDrawn: Bool {
+        PlaylistPanel.visible(
+            open: model.playlistShown,
+            chromeVisible: model.chromeShown,
+            pointerInside: model.playlistHovered
+        )
+    }
+
     var body: some View {
-        NavigationSplitView(columnVisibility: $columns) {
-            PlaylistView(model: model)
-                .navigationSplitViewColumnWidth(min: Theme.playlistMin, ideal: Theme.playlistIdeal, max: Theme.playlistMax)
-        } detail: {
-            stage
-                .navigationTitle("")
-                .toolbar(removing: .sidebarToggle)
-                .toolbarVisibility(.hidden, for: .windowToolbar)
-        }
-        .frame(minWidth: Theme.windowMinWidth, minHeight: Theme.windowMinHeight)
-        .preferredColorScheme(.dark)
-        .background(WindowChrome(shown: model.chromeShown))
-        .onAppear { model.start() }
-        .onChange(of: model.chromeShown) { _, shown in
-            if shown {
-                columns = columnsBeforeHide
-            } else {
-                columnsBeforeHide = columns
-                columns = .detailOnly
-            }
-        }
-        .onChange(of: model.playlistShown) { _, shown in
-            let next: NavigationSplitViewVisibility = shown ? .all : .detailOnly
-            columnsBeforeHide = next
-            if model.chromeShown { columns = next }
-        }
+        stage
+            .frame(minWidth: Theme.windowMinWidth, minHeight: Theme.windowMinHeight)
+            .preferredColorScheme(.dark)
+            .background(WindowChrome(shown: model.chromeShown))
+            .onAppear { model.start() }
         .onDrop(of: [.fileURL, .url], isTargeted: $model.dropTargeted, perform: drop)
         .sheet(isPresented: $model.urlPrompt) { URLSheet(model: model) }
         .sheet(isPresented: $model.timePrompt) { TimeSheet(model: model) }
@@ -77,19 +62,37 @@ struct ContentView: View {
             }
         }
         .overlay(alignment: .top) {
-            if model.chromeShown { topBar }
+            topBar
+                .opacity(model.chromeShown ? 1 : 0)
+                .allowsHitTesting(model.chromeShown)
+                .animation(Theme.fade(reduceMotion), value: model.chromeShown)
         }
         .overlay(alignment: .bottom) {
-            if model.chromeShown { controls }
+            controls
+                .opacity(model.chromeShown ? 1 : 0)
+                .allowsHitTesting(model.chromeShown)
+                .animation(Theme.fade(reduceMotion), value: model.chromeShown)
         }
         .overlay(alignment: .topTrailing) {
             if model.pictureOpen {
                 PicturePanel(model: model)
                     .padding(.top, Theme.pictureInset)
-                    .padding(.trailing, Theme.s16)
+                    .padding(.trailing, Theme.s16 + (playlistDrawn ? Theme.playlistWidth + Theme.s16 : 0))
             }
         }
-        .animation(Theme.fade(reduceMotion), value: model.chromeShown)
+        .overlay(alignment: .trailing) {
+            PlaylistView(model: model, posters: playlistDrawn)
+                .frame(width: Theme.playlistWidth)
+                .meowxSurface(Theme.radiusLarge)
+                .padding(Theme.s16)
+                .offset(x: playlistDrawn ? 0 : Theme.playlistWidth + Theme.s16)
+                .opacity(playlistDrawn ? 1 : 0)
+                .allowsHitTesting(playlistDrawn)
+                .animation(Theme.spring(reduceMotion), value: playlistDrawn)
+                .onHover { hovering in
+                    model.playlistHovered = hovering
+                }
+        }
         .background(Theme.videoBlack)
         .onContinuousHover { phase in
             if case .active = phase { model.poke() }
@@ -200,41 +203,80 @@ struct ContentView: View {
     }
 
     private var topBar: some View {
-        HStack(spacing: Theme.s8) {
-            Button(action: togglePlaylist) {
-                Image(systemName: "sidebar.left")
+        ZStack {
+            titlePill
+            HStack(spacing: Theme.s8) {
+                Theme.clear
+                    .frame(width: model.fullscreen ? 0 : model.trafficInset)
+                    .accessibilityHidden(true)
+                Spacer(minLength: 0)
+                Button(action: model.togglePlaylist) {
+                    Image(systemName: model.playlistShown ? "list.bullet.rectangle.fill" : "list.bullet.rectangle")
+                }
+                .shortcutTip("showPlaylist")
+                Button { model.openFiles(playNow: true) } label: { Image(systemName: "folder") }
+                    .shortcutTip("open")
+                Button { model.urlPrompt = true } label: { Image(systemName: "link") }
+                    .shortcutTip("openURL")
+                moreMenu
             }
-            .shortcutTip("showPlaylist")
-            Text(model.playlist.current == nil ? "Meowx" : model.displayTitle)
-                .font(Theme.bodyStrong)
-                .lineLimit(1)
-            Spacer(minLength: Theme.s8)
-            Button { model.openFiles(playNow: true) } label: { Image(systemName: "folder") }
-                .shortcutTip("open")
-            Button { model.urlPrompt = true } label: { Image(systemName: "link") }
-                .shortcutTip("openURL")
-            Button { model.openSubtitleFile() } label: { Image(systemName: "captions.bubble") }
-                .shortcutTip("cycleSubtitles", title: "Add subtitle")
-                .disabled(model.playlist.current == nil)
-            Button { model.toggleStats() } label: { Image(systemName: "gauge.with.dots.needle.67percent") }
-                .shortcutTip("stats")
+            .buttonStyle(MeowxIconButtonStyle())
+            .foregroundStyle(Theme.ink)
         }
-        .buttonStyle(MeowxIconButtonStyle())
-        .foregroundStyle(Theme.ink)
-        .padding(.horizontal, Theme.s12)
-        .padding(.vertical, Theme.s8)
-        .meowxSurface(Theme.radiusMedium)
-        .padding(.horizontal, Theme.s12)
-        .padding(.leading, model.fullscreen ? 0 : Theme.trafficClearance)
-        .padding(.top, model.fullscreen ? Theme.s8 : Theme.s4)
+        .padding(.horizontal, Theme.s16)
+        .padding(.top, Theme.s8)
         .onHover { hovering in
             model.topHovered = hovering
             model.poke()
         }
     }
 
-    private func togglePlaylist() {
-        model.playlistShown.toggle()
+    private var titlePill: some View {
+        VStack(spacing: Theme.s4) {
+            Text(model.playlist.current == nil ? "Meowx" : model.displayTitle)
+                .font(Theme.bodyStrong)
+                .lineLimit(1)
+            if model.playlist.current != nil, !model.mediaDetail.isEmpty || model.showsHDR {
+                HStack(spacing: Theme.s8) {
+                    if !model.mediaDetail.isEmpty {
+                        Text(model.mediaDetail)
+                            .lineLimit(1)
+                    }
+                    if model.showsHDR {
+                        Text("HDR")
+                            .font(Theme.captionStrong)
+                            .foregroundStyle(Theme.ink)
+                            .padding(.horizontal, Theme.s8)
+                            .padding(.vertical, Theme.s4)
+                            .background(Theme.magenta, in: Capsule())
+                    }
+                }
+                .font(Theme.caption)
+                .foregroundStyle(Theme.inkSecondary)
+            }
+        }
+        .padding(.horizontal, Theme.s16)
+        .padding(.vertical, Theme.s8)
+        .meowxPill()
+        .frame(maxWidth: Theme.copyWidth)
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            Button("Add Subtitle…") { model.openSubtitleFile() }
+                .disabled(model.playlist.current == nil)
+            Button("Stats") { model.toggleStats() }
+            Button("Show in Finder") { model.revealCurrent() }
+                .disabled(model.playlist.current?.url.isFileURL != true)
+            Button("Keyboard Shortcuts") { model.shortcutPrompt = true }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .meowxHit()
+        .help("More")
+        .accessibilityLabel("More")
     }
 
     private var dropOverlay: some View {

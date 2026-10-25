@@ -12,6 +12,8 @@ final class ResumeStoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         store.remember(position: 12, duration: 100, for: "movie")
         XCTAssertEqual(store.position(for: "movie") ?? 0, 12, accuracy: 0.001)
+        XCTAssertEqual(store.fraction(for: "movie") ?? 0, 0.12, accuracy: 0.001)
+        XCTAssertEqual(store.duration(for: "movie") ?? 0, 100, accuracy: 0.001)
         store.remember(position: 1, duration: 100, for: "movie")
         XCTAssertNil(store.position(for: "movie"))
         store.remember(position: 95, duration: 100, for: "credits")

@@ -47,6 +47,8 @@ struct EngineSnapshot {
     var videoCodec: String = ""
     var audioCodec: String = ""
     var videoBitrate: Double = 0
+    var gamma: String = ""
+    var primaries: String = ""
 }
 
 enum EngineEnd: Equatable {
@@ -334,6 +336,8 @@ final class MPVController {
         snap.videoCodec = stringProp("video-codec") ?? ""
         snap.audioCodec = stringProp("audio-codec") ?? ""
         snap.videoBitrate = doubleProp("video-bitrate") ?? 0
+        snap.gamma = stringProp("video-params/gamma") ?? ""
+        snap.primaries = stringProp("video-params/primaries") ?? ""
         return snap
     }
 
